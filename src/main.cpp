@@ -37,6 +37,7 @@ void loop()
 	else if (ui.currentState == UserInterfaceState::MANUAL)
 	{
 		ui.manualDisplay(90, mpu.getPitch(), mpu.getRoll());
+		delay(3000);
 		ui.moveCursor(false);
 		ui.manualDisplay(90, mpu.getPitch(), mpu.getRoll());
 		delay(3000);
@@ -44,8 +45,6 @@ void loop()
 		ui.manualDisplay(90, mpu.getPitch(), mpu.getRoll());
 		delay(3000);
 		ui.changePage();
-		ui.moveCursor(false);
-		delay(3000);
 	}
 	else
 	{
