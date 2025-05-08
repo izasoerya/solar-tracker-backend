@@ -48,6 +48,7 @@ public:
     ~UserInterface() {};
 
     UserInterfaceState currentState = UserInterfaceState::IDLE;
+    ManualObjectState manualState = ManualObjectState::X;
 
     void init()
     {
@@ -124,6 +125,23 @@ public:
         cursorIndex = newIndex;
         currentRow = list[cursorIndex].row;
 
+        if (currentState == UserInterfaceState::MANUAL)
+        {
+            if (cursorIndex == 0)
+                manualState = ManualObjectState::X;
+            else if (cursorIndex == 1)
+                manualState = ManualObjectState::Y;
+            else if (cursorIndex == 2)
+                manualState = ManualObjectState::BACK;
+        }
+        else if (currentState == UserInterfaceState::IDLE)
+        {
+            if (cursorIndex == 0)
+                currentRow = idleList[0].row;
+            else if (cursorIndex == 1)
+                currentRow = idleList[1].row;
+        }
+
         Serial.print("Row: ");
         Serial.println(currentRow);
     }
@@ -168,8 +186,13 @@ public:
         lcd.setCursor(0, 1);
         for (int i = 0; i < maxManualStates; i++)
         {
-            lcd.setCursor(10, manualList[i].row);
-            manualList[i].generateText(lcd, i == cursorIndex);
+            lcd.setCursor(0, manualList[i].row);
+            if (i == 0)
+                manualList[i].generateTextValue(lcd, angleX, i == cursorIndex);
+            else if (i == 1)
+                manualList[i].generateTextValue(lcd, angleY, i == cursorIndex);
+            else
+                manualList[i].generateText(lcd, i == cursorIndex);
         }
     }
 };

@@ -24,3 +24,11 @@ inline String toString(UserInterfaceState state)
         return "UNKNOWN";
     }
 }
+
+enum class ManualObjectState
+{
+    X,
+    Y,
+    BACK,
+    SET,
+};

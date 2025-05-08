@@ -20,13 +20,69 @@ public:
     {
         encoder.tick();
         direction = encoder.getDirection();
-        if (digitalRead(pinSW) == LOW)
+        if (ui.currentState == UserInterfaceState::IDLE)
         {
-            ui.changePage();
+            if (digitalRead(pinSW) == LOW)
+            {
+                ui.changePage();
+            }
+        }
+        else if (ui.currentState == UserInterfaceState::MANUAL)
+        {
+            uint8_t x = 0, y = 0;
+            bool latch = false;
+            if (digitalRead(pinSW) == LOW && ui.manualState == ManualObjectState::X)
+            {
+                latch = true;
+                if (!latch && getDirection() == 1)
+                {
+                    x++;
+                    ui.manualDisplay(0, x, y);
+                }
+                else if (getDirection() == -1)
+                {
+                    x--;
+                    ui.manualDisplay(0, x, y);
+                }
+                if (!digitalRead(pinSW))
+                    latch = false;
+            }
+            else if (digitalRead(pinSW) == LOW && ui.manualState == ManualObjectState::Y)
+            {
+                latch = true;
+                if (!latch && getDirection() == 1)
+                {
+                    y++;
+                    ui.manualDisplay(0, x, y);
+                }
+                else if (getDirection() == -1)
+                {
+                    y--;
+                    ui.manualDisplay(0, x, y);
+                }
+                if (!digitalRead(pinSW))
+                    latch = false;
+            }
+            else if (digitalRead(pinSW) == LOW && ui.manualState == ManualObjectState::BACK)
+            {
+                latch = true;
+                ui.changePage();
+            }
+            else
+            {
+                if (getDirection() == 1)
+                {
+                    ui.moveCursor(true);
+                }
+                else if (getDirection() == -1)
+                {
+                    ui.moveCursor(false);
+                }
+            }
         }
     }
 
-    int getDirection(void *calback(int))
+    int getDirection()
     {
         switch (direction)
         {

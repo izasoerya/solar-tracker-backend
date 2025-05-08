@@ -18,37 +18,40 @@ void loop()
 {
 	mpu.update();
 
-	if (ui.currentState == UserInterfaceState::IDLE)
-	{
-		ui.idleDisplay(90, mpu.getPitch(), mpu.getRoll());
-		ui.moveCursor(true);
-		ui.idleDisplay(90, mpu.getPitch(), mpu.getRoll());
-		delay(3000);
+	ui.idleDisplay(90, mpu.getPitch(), mpu.getRoll());
+	input.read(ui);
 
-		ui.moveCursor(false);
-		ui.idleDisplay(90, mpu.getPitch(), mpu.getRoll());
-		delay(3000);
+	// if (ui.currentState == UserInterfaceState::IDLE)
+	// {
+	// 	ui.idleDisplay(90, mpu.getPitch(), mpu.getRoll());
+	// 	ui.moveCursor(true);
+	// 	ui.idleDisplay(90, mpu.getPitch(), mpu.getRoll());
+	// 	delay(3000);
 
-		ui.moveCursor(true);
-		ui.idleDisplay(90, mpu.getPitch(), mpu.getRoll());
-		ui.changePage();
-		delay(3000);
-	}
-	else if (ui.currentState == UserInterfaceState::MANUAL)
-	{
-		ui.manualDisplay(90, mpu.getPitch(), mpu.getRoll());
-		delay(3000);
-		ui.moveCursor(false);
-		ui.manualDisplay(90, mpu.getPitch(), mpu.getRoll());
-		delay(3000);
-		ui.moveCursor(false);
-		ui.manualDisplay(90, mpu.getPitch(), mpu.getRoll());
-		delay(3000);
-		ui.changePage();
-	}
-	else
-	{
-		ui.initDisplay();
-		delay(3000);
-	}
+	// 	ui.moveCursor(false);
+	// 	ui.idleDisplay(90, mpu.getPitch(), mpu.getRoll());
+	// 	delay(3000);
+
+	// 	ui.moveCursor(true);
+	// 	ui.idleDisplay(90, mpu.getPitch(), mpu.getRoll());
+	// 	ui.changePage();
+	// 	delay(3000);
+	// }
+	// else if (ui.currentState == UserInterfaceState::MANUAL)
+	// {
+	// 	ui.manualDisplay(90, mpu.getPitch(), mpu.getRoll());
+	// 	delay(3000);
+	// 	ui.moveCursor(false);
+	// 	ui.manualDisplay(90, mpu.getPitch(), mpu.getRoll());
+	// 	delay(3000);
+	// 	ui.moveCursor(false);
+	// 	ui.manualDisplay(90, mpu.getPitch(), mpu.getRoll());
+	// 	delay(3000);
+	// 	ui.changePage();
+	// }
+	// else
+	// {
+	// 	ui.initDisplay();
+	// 	delay(3000);
+	// }
 }
