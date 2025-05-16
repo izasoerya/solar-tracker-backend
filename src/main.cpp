@@ -22,7 +22,6 @@ uint8_t sunVal = 0;
 
 Scheduler scheduler;
 
-// UI update task
 Task taskUI(500, TASK_FOREVER, []()
 			{
     if (appState == AppState::AUTOMATIC) {
@@ -49,7 +48,7 @@ void loop()
 {
 	scheduler.execute();
 	input.update();
-
+	mpu.update();
 	sunVal = random(0, 100);
 
 	if (appState == AppState::AUTOMATIC)

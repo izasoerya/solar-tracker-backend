@@ -26,7 +26,6 @@ public:
     {
         encoder.tick();
 
-        // Detect rotation
         auto dir = encoder.getDirection();
         if (dir == RotaryEncoder::Direction::CLOCKWISE)
         {
@@ -41,7 +40,6 @@ public:
             lastDir = 0;
         }
 
-        // Detect button press (rising edge)
         bool btn = digitalRead(pinSW);
         if (lastButtonState == HIGH && btn == LOW)
         {
