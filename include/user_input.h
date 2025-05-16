@@ -1,7 +1,6 @@
 #pragma once
 
 #include <RotaryEncoder.h>
-#include "user_interface.h"
 
 class UserInput
 {
@@ -9,96 +8,59 @@ private:
     const uint8_t pinCLK = 11;
     const uint8_t pinDT = 12;
     const uint8_t pinSW = 13;
-    RotaryEncoder::Direction direction = RotaryEncoder::Direction::NOROTATION;
+
     RotaryEncoder encoder;
+    int lastDir = 0;
+    bool lastButtonState = HIGH;
+    bool pressDetected = false;
 
 public:
-    UserInput() : encoder(RotaryEncoder(pinCLK, pinDT, RotaryEncoder::LatchMode::TWO03)) {};
-    ~UserInput() {};
+    UserInput() : encoder(pinCLK, pinDT, RotaryEncoder::LatchMode::TWO03) {}
 
-    void read(UserInterface &ui)
+    void init()
+    {
+        pinMode(pinSW, INPUT_PULLUP);
+    }
+
+    void update()
     {
         encoder.tick();
-        direction = encoder.getDirection();
-        if (ui.currentState == UserInterfaceState::IDLE)
+
+        // Detect rotation
+        auto dir = encoder.getDirection();
+        if (dir == RotaryEncoder::Direction::CLOCKWISE)
         {
-            if (digitalRead(pinSW) == LOW)
-            {
-                ui.changePage();
-            }
+            lastDir = 1;
         }
-        else if (ui.currentState == UserInterfaceState::MANUAL)
+        else if (dir == RotaryEncoder::Direction::COUNTERCLOCKWISE)
         {
-            uint8_t x = 0, y = 0;
-            bool latch = false;
-            if (digitalRead(pinSW) == LOW && ui.manualState == ManualObjectState::X)
-            {
-                latch = true;
-                if (!latch && getDirection() == 1)
-                {
-                    x++;
-                    ui.manualDisplay(0, x, y);
-                }
-                else if (getDirection() == -1)
-                {
-                    x--;
-                    ui.manualDisplay(0, x, y);
-                }
-                if (!digitalRead(pinSW))
-                    latch = false;
-            }
-            else if (digitalRead(pinSW) == LOW && ui.manualState == ManualObjectState::Y)
-            {
-                latch = true;
-                if (!latch && getDirection() == 1)
-                {
-                    y++;
-                    ui.manualDisplay(0, x, y);
-                }
-                else if (getDirection() == -1)
-                {
-                    y--;
-                    ui.manualDisplay(0, x, y);
-                }
-                if (!digitalRead(pinSW))
-                    latch = false;
-            }
-            else if (digitalRead(pinSW) == LOW && ui.manualState == ManualObjectState::BACK)
-            {
-                latch = true;
-                ui.changePage();
-            }
-            else
-            {
-                if (getDirection() == 1)
-                {
-                    ui.moveCursor(true);
-                }
-                else if (getDirection() == -1)
-                {
-                    ui.moveCursor(false);
-                }
-            }
+            lastDir = -1;
         }
+        else
+        {
+            lastDir = 0;
+        }
+
+        // Detect button press (rising edge)
+        bool btn = digitalRead(pinSW);
+        if (lastButtonState == HIGH && btn == LOW)
+        {
+            pressDetected = true;
+        }
+        lastButtonState = btn;
     }
 
     int getDirection()
     {
-        switch (direction)
-        {
-        case RotaryEncoder::Direction::NOROTATION:
-            return 0;
-            break;
-        case RotaryEncoder::Direction::CLOCKWISE:
-            return 1;
-            break;
-        case RotaryEncoder::Direction::COUNTERCLOCKWISE:
-            return -1;
-            break;
-        default:
-            return 0;
-            break;
-        }
-        direction = RotaryEncoder::Direction::NOROTATION;
+        int d = lastDir;
+        lastDir = 0;
+        return d;
+    }
+
+    bool wasPressed()
+    {
+        bool was = pressDetected;
+        pressDetected = false;
+        return was;
     }
 };
