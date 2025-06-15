@@ -8,9 +8,8 @@
 #include <Arduino.h>
 #include "motor.h"
 
-// TODO: CHANGE THE PINOUT LATER
-Motor driverX(1, 2, 3, 4);
-Motor driverY(1, 2, 3, 4);
+Motor driverX(3, 4, 5, 6);
+Motor driverY(7, 8, 9, 10);
 
 class ControlSystem
 {
