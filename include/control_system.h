@@ -15,6 +15,8 @@ Motor driverY(1, 2, 3, 4);
 class ControlSystem
 {
 private:
+    const float offsetAnglePositive = 2;
+    const float offsetAngleNegative = 2;
     Motor motorX = driverX;
     Motor motorY = driverY;
 
@@ -22,7 +24,7 @@ public:
     ControlSystem();
     ~ControlSystem();
 
-    void runManual(float axisX, float axisY);
+    void runManual(float axisX, float axisY, float roll, float pitch);
     void runAutomatic(float centerVectorX, float centerVectorY);
 };
 
@@ -30,14 +32,51 @@ ControlSystem::ControlSystem() {}
 
 ControlSystem::~ControlSystem() {}
 
-void ControlSystem::runManual(float axisX, float axisY)
+void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
 {
     if (axisX > 0)
-        motorX.turnLeft(axisX);
+    {
+        if (axisX < roll + offsetAnglePositive)
+        {
+            motorX.turnLeft(axisX);
+        }
+        else
+        {
+            motorX.stop();
+        }
+    }
     else if (axisX < 0)
-        motorX.turnRight(axisX);
+    {
+        if (abs(axisX) < abs(roll + offsetAngleNegative))
+        {
+            motorX.turnRight(axisX);
+        }
+        else
+        {
+            motorX.stop();
+        }
+    }
+
     if (axisY > 0)
-        motorY.turnLeft(axisY);
+    {
+        if (axisY < pitch + offsetAnglePositive)
+        {
+            motorY.turnLeft(axisY);
+        }
+        else
+        {
+            motorY.stop();
+        }
+    }
     else if (axisY < 0)
-        motorY.turnRight(axisY);
+    {
+        if (abs(axisY) < abs(pitch + offsetAngleNegative))
+        {
+            motorY.turnRight(axisY);
+        }
+        else
+        {
+            motorY.stop();
+        }
+    }
 }

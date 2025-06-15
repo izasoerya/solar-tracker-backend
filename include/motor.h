@@ -42,4 +42,12 @@ public:
         digitalWrite(RPWM, LOW);
         analogWrite(LPWM, speed);
     }
+
+    void stop()
+    {
+        analogWrite(RPWM, 0);
+        digitalWrite(RPWM, LOW);
+        analogWrite(LPWM, 0);
+        digitalWrite(LPWM, 0);
+    }
 };
