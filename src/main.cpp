@@ -1,8 +1,10 @@
+#include <Wire.h>
+#include <TaskScheduler.h>
+
 #include "user_interface.h"
 #include "user_input.h"
-#include <TaskScheduler.h>
-#include <Wire.h>
 #include "sensor_mpu.h"
+#include "sensor_ldr.h"
 
 #define STEP 5
 #define VAL_MIN 0
@@ -11,6 +13,8 @@
 UserInterface ui;
 UserInput input;
 SensorMPU mpu;
+byte ldrPins[6] = {A0, A1, A2, A3, A4, A5};
+SensorLDR ldr(ldrPins);
 
 AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
@@ -18,16 +22,17 @@ bool inEditMode = false;
 
 int xVal = 0;
 int yVal = 0;
-uint8_t sunVal = 0;
+uint16_t sunX = 0;
+uint16_t sunY = 0;
 
 Scheduler scheduler;
 
 Task taskUI(500, TASK_FOREVER, []()
 			{
     if (appState == AppState::AUTOMATIC) {
-        ui.showAutomatic(sunVal, xVal, yVal);
+        ui.showAutomatic((sunX + sunY) / 2, xVal, yVal);
     } else {
-        ui.showManual(sunVal, xVal, yVal, selection, inEditMode);
+        ui.showManual((sunX + sunY) / 2, xVal, yVal, selection, inEditMode);
     } });
 
 void setup()
@@ -38,6 +43,7 @@ void setup()
 	ui.init();
 	input.init();
 	mpu.begin();
+	ldr.begin();
 
 	scheduler.init();
 	scheduler.addTask(taskUI);
@@ -49,7 +55,7 @@ void loop()
 	scheduler.execute();
 	input.update();
 	mpu.update();
-	sunVal = random(0, 100);
+	ldr.update();
 
 	if (appState == AppState::AUTOMATIC)
 	{
