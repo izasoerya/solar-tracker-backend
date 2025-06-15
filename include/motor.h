@@ -1,14 +1,19 @@
-#pragma once
 
+/** GENERAL DESCRIPTION
+ * @brief Assume to use Driver BTS7960 for control motor
+ * PIN is defined at the implementation
+ */
+
+#pragma once
 #include <Arduino.h>
 
 class Motor
 {
 private:
-    byte LEN;  // Left Enable Pin
-    byte REN;  // Right Enable Pin
-    byte LPWM; // Left PWM Pin
-    byte RPWM; // Right PWM Pin
+    byte LEN;
+    byte REN;
+    byte LPWM;
+    byte RPWM;
 
 public:
     Motor(byte REN, byte LEN, byte RPWM, byte LPWM)
@@ -19,8 +24,8 @@ public:
         this->RPWM = RPWM;
         pinMode(LEN, OUTPUT);
         pinMode(REN, OUTPUT);
-        digitalWrite(LEN, HIGH);
-        digitalWrite(REN, HIGH);
+        digitalWrite(LEN, LOW);
+        digitalWrite(REN, LOW);
     };
     ~Motor() {};
 
