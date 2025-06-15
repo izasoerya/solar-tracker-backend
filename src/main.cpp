@@ -5,6 +5,7 @@
 #include "user_input.h"
 #include "sensor_mpu.h"
 #include "sensor_ldr.h"
+#include "control_system.h"
 
 #define STEP 5
 #define VAL_MIN 0
@@ -15,6 +16,7 @@ UserInput input;
 SensorMPU mpu;
 byte ldrPins[6] = {A0, A1, A2, A3, A4, A5};
 SensorLDR ldr(ldrPins);
+ControlSystem control;
 
 AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
@@ -68,6 +70,7 @@ void loop()
 			selection = ManualSelection::X;
 			inEditMode = false;
 		}
+		control.runAutomatic(sunX, sunY);
 	}
 	else if (appState == AppState::MANUAL)
 	{
@@ -104,5 +107,6 @@ void loop()
 				selection = static_cast<ManualSelection>(newSel);
 			}
 		}
+		control.runManual(xVal, yVal, mpu.getRoll(), mpu.getPitch());
 	}
 }
