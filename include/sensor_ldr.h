@@ -1,13 +1,15 @@
+#ifndef SENSOR_LDR_MODULE_H
+#define SENSOR_LDR_MODULE_H
 
-/** GENERAL DESCRIPTION
- * @brief Weighted Vector Reading to calculate light using centroid
- *
- */
-
-#pragma once
 #include <Arduino.h>
 #include <Wire.h>
 
+/**
+ * @brief SensorLDR class for reading LDR sensor values using weighted vector readings.
+ *
+ * This class reads analog values from an array of LDR sensors and calculates
+ * normalized X and Y centroids based on weighted values.
+ */
 class SensorLDR
 {
 private:
@@ -17,60 +19,136 @@ private:
     float weightedVectorY[6] = {-1, -1, -1, 1, 1, 1};
 
 public:
-    SensorLDR(byte pin[6])
-    {
-        memcpy(this->pin, pin, sizeof(this->pin));
-    }
-    ~SensorLDR() {};
+    /**
+     * @brief Constructs a SensorLDR object.
+     * @param pins An array of 6 pin numbers connected to the LDR sensors.
+     */
+    SensorLDR(byte pins[6]);
 
-    void begin()
-    {
-        for (int i = 0; i < 6; i++)
-        {
-            pinMode(pin[i], INPUT);
-        }
-    }
+    /**
+     * @brief Initializes the sensor pins.
+     */
+    void begin();
 
-    void update()
-    {
-        for (int i = 0; i < 6; i++)
-        {
-            value[i] = analogRead(pin[i]);
-        }
-    }
+    /**
+     * @brief Updates the sensor readings.
+     */
+    void update();
 
-    uint16_t getRawValue(int index)
-    {
-        return value[index];
-    }
+    /**
+     * @brief Returns the raw analog value at the specified index.
+     * @param index The sensor index.
+     * @return uint16_t The raw sensor value.
+     */
+    uint16_t getRawValue(int index);
 
-    float getVectorX()
-    {
-        float sumX = 0;
-        float totalSum = 0;
-        for (int i = 0; i < 6; i++)
-        {
-            float val = (float)value[i];
-            sumX += val * weightedVectorX[i];
-            totalSum += val;
-        }
-        if (totalSum == 0)
-            return 0;
-        return sumX / totalSum;
-    }
+    /**
+     * @brief Get the Sum X (centroid) object
+     *
+     * @return uint16_t
+     */
+    uint16_t getSumX();
 
-    float getVectorY()
-    {
-        float sumY = 0;
-        float totalSum = 0;
-        for (int i = 0; i < 6; i++)
-        {
-            float val = (float)value[i];
-            sumY += val * weightedVectorY[i];
-            totalSum += val;
-        }
-        if (totalSum == 0)
-            return 0;
-        return sumY / totalSum;
-    }
+    /**
+     * @brief Get the Sum Y (centroid) object
+     *
+     * @return uint16_t
+     */
+    uint16_t getSumY();
+
+    /**
+     * @brief Calculates the normalized X centroid using weighted values.
+     * @return float The normalized X value.
+     */
+    float getNormalizedX();
+
+    /**
+     * @brief Calculates the normalized Y centroid using weighted values.
+     * @return float The normalized Y value.
+     */
+    float getNormalizedY();
 };
+
+#endif // SENSOR_LDR_MODULE_H
+
+// ------------------------------
+// Implementation Section
+// ------------------------------
+
+SensorLDR::SensorLDR(byte pins[6])
+{
+    memcpy(this->pin, pins, sizeof(this->pin));
+}
+
+void SensorLDR::begin()
+{
+    for (int i = 0; i < 6; i++)
+    {
+        pinMode(pin[i], INPUT);
+    }
+}
+
+void SensorLDR::update()
+{
+    for (int i = 0; i < 6; i++)
+    {
+        value[i] = analogRead(pin[i]);
+    }
+}
+
+uint16_t SensorLDR::getRawValue(int index)
+{
+    return value[index];
+}
+
+uint16_t SensorLDR::getSumX()
+{
+    float sumX = 0;
+    for (int i = 0; i < 6; i++)
+    {
+        float val = static_cast<float>(value[i]);
+        sumX += val * weightedVectorX[i];
+    }
+    return sumX;
+}
+
+uint16_t SensorLDR::getSumY()
+{
+    float SumY = 0;
+    for (int i = 0; i < 6; i++)
+    {
+        float val = static_cast<float>(value[i]);
+        SumY += val * weightedVectorY[i];
+    }
+    return SumY;
+}
+
+float SensorLDR::getNormalizedX()
+{
+    float sumX = 0;
+    float totalSum = 0;
+    for (int i = 0; i < 6; i++)
+    {
+        float val = static_cast<float>(value[i]);
+        sumX += val * weightedVectorX[i];
+        totalSum += val;
+    }
+    if (totalSum == 0)
+        return 0;
+    return sumX / totalSum;
+}
+
+float SensorLDR::getNormalizedY()
+{
+    float sumY = 0;
+    float totalSum = 0;
+    for (int i = 0; i < 6; i++)
+    {
+        float val = static_cast<float>(value[i]);
+        sumY += val * weightedVectorY[i];
+        totalSum += val;
+    }
+    if (totalSum == 0)
+        return 0;
+    return sumY / totalSum;
+}
