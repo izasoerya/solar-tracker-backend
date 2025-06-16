@@ -15,6 +15,7 @@ class SensorLDR
 private:
     byte pin[6];
     byte value[6] = {0, 0, 0, 0, 0, 0};
+    uint16_t sensorOffset[6] = {0, 0, 0, 0, 0, 0};
     float weightedVectorX[6] = {-1, 0, 1, -1, 0, 1};
     float weightedVectorY[6] = {-1, -1, -1, 1, 1, 1};
 
@@ -92,7 +93,7 @@ void SensorLDR::update()
 {
     for (int i = 0; i < 6; i++)
     {
-        value[i] = analogRead(pin[i]);
+        value[i] = analogRead(pin[i]) + sensorOffset[i];
     }
 }
 
