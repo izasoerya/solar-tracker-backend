@@ -22,17 +22,19 @@ AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
 bool inEditMode = false;
 
-int xVal = 0;
-int yVal = 0;
+float xVal = 0;
+float yVal = 0;
+float angleX = 0;
+float angleY = 0;
 uint16_t sunX = 0;
 uint16_t sunY = 0;
 
 Scheduler scheduler;
 
-Task taskUI(500, TASK_FOREVER, []()
-			{
+Task serveUI(500, TASK_FOREVER, []()
+			 {
     if (appState == AppState::AUTOMATIC) {
-        ui.showAutomatic((sunX + sunY) / 2, xVal, yVal);
+        ui.showAutomatic((sunX + sunY) / 2, angleX, angleY);
     } else {
         ui.showManual((sunX + sunY) / 2, xVal, yVal, selection, inEditMode);
     } });
@@ -48,8 +50,8 @@ void setup()
 	ldr.begin();
 
 	scheduler.init();
-	scheduler.addTask(taskUI);
-	taskUI.enable();
+	scheduler.addTask(serveUI);
+	serveUI.enable();
 }
 
 void loop()
@@ -59,11 +61,11 @@ void loop()
 	mpu.update();
 	ldr.update();
 
+	angleX = constrain(static_cast<int>(mpu.getRoll()), VAL_MIN, VAL_MAX);
+	angleY = constrain(static_cast<int>(mpu.getPitch()), VAL_MIN, VAL_MAX);
+
 	if (appState == AppState::AUTOMATIC)
 	{
-		xVal = constrain(static_cast<int>(mpu.getRoll()), VAL_MIN, VAL_MAX);
-		yVal = constrain(static_cast<int>(mpu.getPitch()), VAL_MIN, VAL_MAX);
-
 		if (input.wasPressed())
 		{
 			appState = AppState::MANUAL;
