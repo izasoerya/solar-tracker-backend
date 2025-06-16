@@ -16,6 +16,14 @@ private:
     byte RPWM;
 
 public:
+    /**
+     * @brief Construct a new BTS7960 Driver Motor object
+     *
+     * @param REN Enable pin for right PWM
+     * @param LEN Enable pin for left PWM
+     * @param RPWM PWM pin for control PWM right
+     * @param LPWM PWM pin for control PWM left
+     */
     Motor(byte REN, byte LEN, byte RPWM, byte LPWM)
     {
         this->LEN = LEN;
@@ -27,8 +35,14 @@ public:
         digitalWrite(LEN, LOW);
         digitalWrite(REN, LOW);
     };
+
     ~Motor() {};
 
+    /**
+     * @brief Turns the motor to the left with the specified speed.
+     *
+     * @param speed The speed at which to run the motor (0 - 255).
+     */
     void turnLeft(byte speed)
     {
         analogWrite(LPWM, 0);
@@ -36,6 +50,11 @@ public:
         analogWrite(RPWM, speed);
     }
 
+    /**
+     * @brief Turns the motor to the right with the specified speed.
+     *
+     * @param speed The speed at which to run the motor (0 - 255).
+     */
     void turnRight(byte speed)
     {
         analogWrite(RPWM, 0);
@@ -43,6 +62,9 @@ public:
         analogWrite(LPWM, speed);
     }
 
+    /**
+     * @brief Stops the motor.
+     */
     void stop()
     {
         analogWrite(RPWM, 0);
