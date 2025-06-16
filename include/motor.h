@@ -1,118 +1,93 @@
-#ifndef SENSOR_LDR_H
-#define SENSOR_LDR_H
-
+#pragma once
 #include <Arduino.h>
-#include <Wire.h>
 
 /**
- * @brief SensorLDR class for reading LDR sensor values using weighted vector readings.
- *
- * This class reads analog values from an array of LDR sensors and calculates
- * normalized X and Y centroids based on weighted values.
+ * @brief Class representing a BTS7960 motor driver controller.
  */
-class SensorLDR
+class Motor
 {
-private:
-    byte pin[6];
-    byte value[6] = {0, 0, 0, 0, 0, 0};
-    float weightedVectorX[6] = {-1, 0, 1, -1, 0, 1};
-    float weightedVectorY[6] = {-1, -1, -1, 1, 1, 1};
-
 public:
     /**
-     * @brief Constructs a SensorLDR object.
-     * @param pins An array of 6 pin numbers connected to the LDR sensors.
+     * @brief Construct a new Motor object using BTS7960 driver.
+     *
+     * @param REN Enable pin for right PWM
+     * @param LEN Enable pin for left PWM
+     * @param RPWM PWM pin for control PWM right
+     * @param LPWM PWM pin for control PWM left
      */
-    SensorLDR(byte pins[6]);
+    Motor(byte REN, byte LEN, byte RPWM, byte LPWM);
 
     /**
-     * @brief Initializes the sensor pins.
+     * @brief Destroy the Motor object
      */
-    void begin();
+    ~Motor();
 
     /**
-     * @brief Updates the sensor readings.
+     * @brief Turns the motor to the left with the specified speed.
+     *
+     * @param speed The speed (0–255).
      */
-    void update();
+    void turnLeft(byte speed);
 
     /**
-     * @brief Returns the raw analog value at the specified index.
-     * @param index The sensor index.
-     * @return uint16_t The raw sensor value.
+     * @brief Turns the motor to the right with the specified speed.
+     *
+     * @param speed The speed (0–255).
      */
-    uint16_t getRawValue(int index);
+    void turnRight(byte speed);
 
     /**
-     * @brief Calculates the normalized X centroid using weighted values.
-     * @return float The normalized X value.
+     * @brief Stops the motor immediately.
      */
-    float getNormalizedX();
+    void stop();
 
-    /**
-     * @brief Calculates the normalized Y centroid using weighted values.
-     * @return float The normalized Y value.
-     */
-    float getNormalizedY();
+private:
+    byte LEN;
+    byte REN;
+    byte LPWM;
+    byte RPWM;
 };
-
-#endif // SENSOR_LDR_H
 
 // ------------------------------
 // Implementation Section
 // ------------------------------
 
-SensorLDR::SensorLDR(byte pins[6])
+Motor::Motor(byte REN, byte LEN, byte RPWM, byte LPWM)
 {
-    memcpy(this->pin, pins, sizeof(this->pin));
+    this->LEN = LEN;
+    this->REN = REN;
+    this->LPWM = LPWM;
+    this->RPWM = RPWM;
+
+    pinMode(this->LEN, OUTPUT);
+    pinMode(this->REN, OUTPUT);
+    pinMode(this->LPWM, OUTPUT);
+    pinMode(this->RPWM, OUTPUT);
+
+    digitalWrite(this->LEN, LOW);
+    digitalWrite(this->REN, LOW);
 }
 
-void SensorLDR::begin()
+Motor::~Motor() {}
+
+void Motor::turnLeft(byte speed)
 {
-    for (int i = 0; i < 6; i++)
-    {
-        pinMode(pin[i], INPUT);
-    }
+    analogWrite(LPWM, 0);
+    digitalWrite(LPWM, LOW);
+    analogWrite(RPWM, speed);
 }
 
-void SensorLDR::update()
+void Motor::turnRight(byte speed)
 {
-    for (int i = 0; i < 6; i++)
-    {
-        value[i] = analogRead(pin[i]);
-    }
+    analogWrite(RPWM, 0);
+    digitalWrite(RPWM, LOW);
+    analogWrite(LPWM, speed);
 }
 
-uint16_t SensorLDR::getRawValue(int index)
+void Motor::stop()
 {
-    return value[index];
-}
-
-float SensorLDR::getNormalizedX()
-{
-    float sumX = 0;
-    float totalSum = 0;
-    for (int i = 0; i < 6; i++)
-    {
-        float val = static_cast<float>(value[i]);
-        sumX += val * weightedVectorX[i];
-        totalSum += val;
-    }
-    if (totalSum == 0)
-        return 0;
-    return sumX / totalSum;
-}
-
-float SensorLDR::getNormalizedY()
-{
-    float sumY = 0;
-    float totalSum = 0;
-    for (int i = 0; i < 6; i++)
-    {
-        float val = static_cast<float>(value[i]);
-        sumY += val * weightedVectorY[i];
-        totalSum += val;
-    }
-    if (totalSum == 0)
-        return 0;
-    return sumY / totalSum;
+    analogWrite(RPWM, 0);
+    analogWrite(LPWM, 0);
+    digitalWrite(RPWM, LOW);
+    digitalWrite(LPWM, LOW);
 }
