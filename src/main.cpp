@@ -63,6 +63,8 @@ void loop()
 
 	angleX = constrain(static_cast<int>(mpu.getRoll()), VAL_MIN, VAL_MAX);
 	angleY = constrain(static_cast<int>(mpu.getPitch()), VAL_MIN, VAL_MAX);
+	sunX = ldr.getSumX();
+	sunY = ldr.getSumY();
 
 	if (appState == AppState::AUTOMATIC)
 	{
