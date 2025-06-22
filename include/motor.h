@@ -64,8 +64,13 @@ Motor::Motor(byte REN, byte LEN, byte RPWM, byte LPWM)
     pinMode(this->LPWM, OUTPUT);
     pinMode(this->RPWM, OUTPUT);
 
-    digitalWrite(this->LEN, LOW);
-    digitalWrite(this->REN, LOW);
+    digitalWrite(this->LEN, HIGH);
+    digitalWrite(this->REN, HIGH);
+
+    analogWrite(LPWM, 0);
+    digitalWrite(LPWM, LOW);
+    analogWrite(RPWM, 0);
+    digitalWrite(RPWM, LOW);
 }
 
 Motor::~Motor() {}
@@ -74,6 +79,7 @@ void Motor::turnLeft(byte speed)
 {
     analogWrite(LPWM, 0);
     digitalWrite(LPWM, LOW);
+
     analogWrite(RPWM, speed);
 }
 
@@ -81,6 +87,7 @@ void Motor::turnRight(byte speed)
 {
     analogWrite(RPWM, 0);
     digitalWrite(RPWM, LOW);
+
     analogWrite(LPWM, speed);
 }
 
