@@ -47,7 +47,7 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
     }
     else if (axisX < 0)
     {
-        if (abs(axisX) < abs(roll + offsetAngleNegative))
+        if (fabs(axisX) < fabs(roll + offsetAngleNegative))
         {
             motorX.turnRight(axisX);
         }
@@ -70,7 +70,7 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
     }
     else if (axisY < 0)
     {
-        if (abs(axisY) < abs(pitch + offsetAngleNegative))
+        if (fabs(axisY) < fabs(pitch + offsetAngleNegative))
         {
             motorY.turnRight(axisY);
         }
