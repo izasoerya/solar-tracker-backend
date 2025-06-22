@@ -35,14 +35,14 @@ Task serveUI(500, TASK_FOREVER, []()
 			 {
     if (appState == AppState::AUTOMATIC) {
         ui.showAutomatic(
-			(sunX + sunY) / 2, 
+			(sunX + sunY) / 2,
 			angleX, angleY
 		);
     } else {
         ui.showManual(
-			(sunX + sunY) / 2, 
-			xVal, yVal, 
-			angleX, angleY, 
+			(sunX + sunY) / 2,
+			xVal, yVal,
+			angleX, angleY,
 			selection, inEditMode
 		);
     } });
@@ -69,8 +69,8 @@ void loop()
 	mpu.update();
 	ldr.update();
 
-	angleX = constrain(static_cast<int>(mpu.getRoll()), VAL_MIN, VAL_MAX);
-	angleY = constrain(static_cast<int>(mpu.getPitch()), VAL_MIN, VAL_MAX);
+	angleX = mpu.getRoll();
+	angleY = mpu.getPitch();
 	sunX = ldr.getSumX();
 	sunY = ldr.getSumY();
 
@@ -122,3 +122,18 @@ void loop()
 		control.runManual(xVal, yVal, mpu.getRoll(), mpu.getPitch());
 	}
 }
+
+// #include <Arduino.h>
+// #include <motor.h>
+
+// Motor driverX(3, 4, 5, 6);
+// Motor driverY(7, 8, 9, 10);
+
+// void setup()
+// {
+// }
+
+// void loop()
+// {
+// 	driverY.turnRight(155);
+// }
