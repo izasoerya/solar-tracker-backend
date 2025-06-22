@@ -47,7 +47,7 @@ public:
         lcd.print(y);
     }
 
-    void showManual(uint8_t sun, int x, int y, ManualSelection selection, bool inEdit)
+    void showManual(uint8_t sun, int x, int y, float mpuX, float mpuY, ManualSelection selection, bool inEdit)
     {
         lcd.clear();
         lcd.setCursor(0, 0);
@@ -61,10 +61,14 @@ public:
             if (i == 0)
             {
                 lcd.print((selected ? ">" : " ") + String("X: ") + String(x) + (selected && inEdit ? "*" : ""));
+                lcd.setCursor(10, 1);
+                lcd.print("*X = " + String(mpuX));
             }
             else if (i == 1)
             {
                 lcd.print((selected ? ">" : " ") + String("Y: ") + String(y) + (selected && inEdit ? "*" : ""));
+                lcd.setCursor(10, 2);
+                lcd.print("*Y = " + String(mpuY));
             }
             else
             {

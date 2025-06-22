@@ -34,9 +34,17 @@ Scheduler scheduler;
 Task serveUI(500, TASK_FOREVER, []()
 			 {
     if (appState == AppState::AUTOMATIC) {
-        ui.showAutomatic((sunX + sunY) / 2, angleX, angleY);
+        ui.showAutomatic(
+			(sunX + sunY) / 2, 
+			angleX, angleY
+		);
     } else {
-        ui.showManual((sunX + sunY) / 2, xVal, yVal, selection, inEditMode);
+        ui.showManual(
+			(sunX + sunY) / 2, 
+			xVal, yVal, 
+			angleX, angleY, 
+			selection, inEditMode
+		);
     } });
 
 void setup()
