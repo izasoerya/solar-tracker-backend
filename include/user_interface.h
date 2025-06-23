@@ -60,15 +60,15 @@ public:
             bool selected = (i == static_cast<int>(selection));
             if (i == 0)
             {
-                lcd.print((selected ? ">" : " ") + String("X: ") + String(x, 1) + (selected && inEdit ? "*" : ""));
-                lcd.setCursor(8, 1);
-                lcd.print("X = " + String(mpuX, 1));
+                lcd.print((selected ? ">" : " ") + String("X: ") + String(x) + (selected && inEdit ? "*" : ""));
+                lcd.setCursor(10, 1);
+                lcd.print("X = " + String(mpuX));
             }
             else if (i == 1)
             {
-                lcd.print((selected ? ">" : " ") + String("Y: ") + String(y, 1) + (selected && inEdit ? "*" : ""));
-                lcd.setCursor(8, 2);
-                lcd.print("Y = " + String(mpuY, 1));
+                lcd.print((selected ? ">" : " ") + String("Y: ") + String(y) + (selected && inEdit ? "*" : ""));
+                lcd.setCursor(10, 2);
+                lcd.print("Y = " + String(mpuY));
             }
             else
             {

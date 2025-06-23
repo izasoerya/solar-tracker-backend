@@ -7,9 +7,9 @@
 #include "sensor_ldr.h"
 #include "control_system.h"
 
-#define STEP 5
-#define VAL_MIN 0
-#define VAL_MAX 100
+#define STEP 1
+#define VAL_MIN -90
+#define VAL_MAX 90
 
 UserInterface ui;
 UserInput input;
@@ -22,8 +22,8 @@ AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
 bool inEditMode = false;
 
-float xVal = 0;
-float yVal = 0;
+int8_t xVal = 0;
+int8_t yVal = 0;
 float angleX = 0;
 float angleY = 0;
 uint16_t sunX = 0;
@@ -105,9 +105,9 @@ void loop()
 			if (inEditMode)
 			{
 				if (selection == ManualSelection::X)
-					xVal = constrain(xVal + dir * STEP, VAL_MIN, VAL_MAX);
+					xVal = constrain(xVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
 				else if (selection == ManualSelection::Y)
-					yVal = constrain(yVal + dir * STEP, VAL_MIN, VAL_MAX);
+					yVal = constrain(yVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
 			}
 			else
 			{
@@ -120,6 +120,7 @@ void loop()
 			}
 		}
 		control.runManual(xVal, yVal, mpu.getRoll(), mpu.getPitch());
+		delay(5);
 	}
 }
 
