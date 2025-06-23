@@ -14,8 +14,8 @@ Motor driverY(7, 8, 9, 10);
 class ControlSystem
 {
 private:
-    const float offsetAnglePositive = 2;
-    const float offsetAngleNegative = 2;
+    const float offsetAnglePositive = 10;
+    const float offsetAngleNegative = 10;
     const float automaticSpeed = 5;
     Motor motorX = driverX;
     Motor motorY = driverY;
@@ -24,7 +24,7 @@ public:
     ControlSystem();
     ~ControlSystem();
 
-    void runManual(float axisX, float axisY, float roll, float pitch);
+    void runManual(int8_t axisX, int8_t axisY, float roll, float pitch);
     void runAutomatic(float centerVectorX, float centerVectorY);
 };
 
@@ -32,53 +32,49 @@ ControlSystem::ControlSystem() {}
 
 ControlSystem::~ControlSystem() {}
 
-void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
+void ControlSystem::runManual(int8_t axisX, int8_t axisY, float roll, float pitch)
 {
-    if (axisX > 0)
+    // Deadband threshold to prevent oscillation
+    const float deadband = 20.0;
+
+    // X axis control (using roll)
+    bool xCentered = false;
+    float errorX = axisX - roll;
+    if (fabs(errorX) < deadband)
     {
-        if (axisX < roll + offsetAnglePositive)
-        {
-            motorX.turnLeft(axisX);
-        }
-        else
-        {
-            motorX.stop();
-        }
+        motorX.stop();
+        xCentered = true;
     }
-    else if (axisX < 0)
+    else if (errorX > 0)
     {
-        if (fabs(axisX) < fabs(roll + offsetAngleNegative))
-        {
-            motorX.turnRight(axisX);
-        }
-        else
-        {
-            motorX.stop();
-        }
+        motorX.turnRight(255);
+    }
+    else // errorX < 0
+    {
+        motorX.turnLeft(255);
     }
 
-    if (axisY > 0)
-    {
-        if (axisY < pitch + offsetAnglePositive)
-        {
-            motorY.turnLeft(axisY);
-        }
-        else
-        {
-            motorY.stop();
-        }
-    }
-    else if (axisY < 0)
-    {
-        if (fabs(axisY) < fabs(pitch + offsetAngleNegative))
-        {
-            motorY.turnRight(axisY);
-        }
-        else
-        {
-            motorY.stop();
-        }
-    }
+    // Only control Y if X is centered (stopped)
+    // if (xCentered)
+    // {
+    //     float errorY = axisY - pitch;
+    //     if (fabs(errorY) < deadband)
+    //     {
+    //         motorY.stop();
+    //     }
+    //     else if (errorY > 0)
+    //     {
+    //         motorY.turnRight(255);
+    //     }
+    //     else // errorY < 0
+    //     {
+    //         motorY.turnLeft(255);
+    //     }
+    // }
+    // else
+    // {
+    //     motorY.stop();
+    // }
 }
 
 void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
