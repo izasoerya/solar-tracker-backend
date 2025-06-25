@@ -55,6 +55,8 @@ void setup()
 	ui.init();
 	input.init();
 	mpu.begin();
+	mpu.setGyroSensitivity(1);
+	mpu.setAccelSensitivity(2);
 	ldr.begin();
 
 	scheduler.init();

@@ -45,4 +45,22 @@ public:
 
     float getRoll() const { return roll; }
     float getPitch() const { return pitch; }
+
+    // Set accelerometer sensitivity (0=±2g, 1=±4g, 2=±8g, 3=±16g)
+    void setAccelSensitivity(uint8_t level)
+    {
+        Wire.beginTransmission(MPU_ADDR);
+        Wire.write(0x1C); // ACCEL_CONFIG register
+        Wire.write((level & 0x03) << 3);
+        Wire.endTransmission(true);
+    }
+
+    // Set gyroscope sensitivity (0=±250°/s, 1=±500°/s, 2=±1000°/s, 3=±2000°/s)
+    void setGyroSensitivity(uint8_t level)
+    {
+        Wire.beginTransmission(MPU_ADDR);
+        Wire.write(0x1B); // GYRO_CONFIG register
+        Wire.write((level & 0x03) << 3);
+        Wire.endTransmission(true);
+    }
 };
