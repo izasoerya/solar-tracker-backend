@@ -5,6 +5,7 @@
 #include "user_input.h"
 #include "sensor_mpu.h"
 #include "sensor_ldr.h"
+#include "madgwick_imu.h"
 #include "control_system.h"
 
 #define STEP 1
@@ -17,6 +18,7 @@ SensorMPU mpu;
 byte ldrPins[6] = {A0, A1, A2, A3, A4, A5};
 SensorLDR ldr(ldrPins);
 ControlSystem control;
+MadgwickIMU imu;
 
 AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
@@ -70,9 +72,11 @@ void loop()
 	input.update();
 	mpu.update();
 	ldr.update();
+	ModelIMU imuData = mpu.getModelIMU();
+	imu.update(imuData);
 
-	angleX = mpu.getRoll();
-	angleY = mpu.getPitch();
+	angleX = imu.getRoll();
+	angleY = imu.getPitch();
 	sunX = ldr.getSumX();
 	sunY = ldr.getSumY();
 
@@ -121,7 +125,7 @@ void loop()
 				selection = static_cast<ManualSelection>(newSel);
 			}
 		}
-		control.runManual(xVal, yVal, mpu.getRoll(), mpu.getPitch());
+		control.runManual(xVal, yVal, mpu.getAccelRoll(), mpu.getAccelPitch());
 		delay(5);
 	}
 }

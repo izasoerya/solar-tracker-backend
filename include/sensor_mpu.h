@@ -3,6 +3,19 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+struct ModelIMU
+{
+    float xa;
+    float ya;
+    float za;
+    float xg;
+    float yg;
+    float zg;
+    float Accelroll;
+    float Accelpitch;
+    float Accelyaw;
+};
+
 class SensorMPU
 {
 private:
@@ -10,7 +23,7 @@ private:
     const uint8_t MPU_PWR_MGMT_1 = 0x6B;
     const uint8_t MPU_ACCEL_XOUT_H = 0x3B;
     const uint8_t byteSize = 6;
-    float xa, ya, za, roll, pitch;
+    ModelIMU imuData;
 
 public:
     SensorMPU() {}
@@ -33,18 +46,22 @@ public:
         Wire.requestFrom(MPU_ADDR, byteSize); // request 6 bytes of accelerometer data
 
         int t = Wire.read();
-        xa = (t << 8) | Wire.read();
+        imuData.xa = (t << 8) | Wire.read();
         t = Wire.read();
-        ya = (t << 8) | Wire.read();
+        imuData.ya = (t << 8) | Wire.read();
         t = Wire.read();
-        za = (t << 8) | Wire.read();
+        imuData.za = (t << 8) | Wire.read();
 
-        roll = atan2(ya, za) * 180.0 / PI;
-        pitch = atan2(-xa, sqrt(ya * ya + za * za)) * 180.0 / PI;
+        imuData.Accelroll = atan2(imuData.ya, imuData.za) * 180.0 / PI;
+        imuData.Accelpitch = atan2(-imuData.xa, sqrt(imuData.ya * imuData.ya + imuData.za * imuData.za)) * 180.0 / PI;
     }
 
-    float getRoll() const { return roll; }
-    float getPitch() const { return pitch; }
+    float getAccelX() const { return imuData.xa; }
+    float getAccelY() const { return imuData.ya; }
+    float getAccelZ() const { return imuData.za; }
+    float getAccelRoll() const { return imuData.Accelroll; }
+    float getAccelPitch() const { return imuData.Accelpitch; }
+    ModelIMU getModelIMU() const { return imuData; }
 
     // Set accelerometer sensitivity (0=±2g, 1=±4g, 2=±8g, 3=±16g)
     void setAccelSensitivity(uint8_t level)
