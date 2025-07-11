@@ -9,8 +9,8 @@
 #include "control_system.h"
 
 #define STEP 1
-#define VAL_MIN -90
-#define VAL_MAX 90
+#define VAL_MIN -60
+#define VAL_MAX 60
 
 UserInterface ui;
 UserInput input;
@@ -88,7 +88,7 @@ void loop()
 			selection = ManualSelection::X;
 			inEditMode = false;
 		}
-		control.runAutomatic(sunX, sunY);
+		// control.runAutomatic(sunX, sunY);
 	}
 	else if (appState == AppState::MANUAL)
 	{
@@ -125,7 +125,7 @@ void loop()
 				selection = static_cast<ManualSelection>(newSel);
 			}
 		}
-		control.runManual(xVal, yVal, mpu.getAccelRoll(), mpu.getAccelPitch());
+		control.runManual(xVal, yVal, angleX, angleY);
 		delay(5);
 	}
 }
@@ -142,5 +142,8 @@ void loop()
 
 // void loop()
 // {
-// 	driverY.turnRight(155);
+// 	driverY.turnRight(255);
+// 	delay(10000);
+// 	driverY.turnLeft(255);
+// 	delay(10000);
 // }
