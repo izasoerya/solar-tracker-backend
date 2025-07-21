@@ -46,11 +46,23 @@ public:
         Wire.requestFrom(MPU_ADDR, byteSize); // request 6 bytes of accelerometer data
 
         int t = Wire.read();
-        imuData.xa = (t << 8) | Wire.read();
+        float newXa = (t << 8) | Wire.read();
         t = Wire.read();
-        imuData.ya = (t << 8) | Wire.read();
+        float newYa = (t << 8) | Wire.read();
         t = Wire.read();
-        imuData.za = (t << 8) | Wire.read();
+        float newZa = (t << 8) | Wire.read();
+
+        // Sanity check: ignore if value is out of expected range (e.g., > ±32768 for raw, or ±20g for converted)
+        if (isnan(newXa) || abs(newXa) > 32768)
+            newXa = imuData.xa;
+        if (isnan(newYa) || abs(newYa) > 32768)
+            newYa = imuData.ya;
+        if (isnan(newZa) || abs(newZa) > 32768)
+            newZa = imuData.za;
+
+        imuData.xa = newXa;
+        imuData.ya = newYa;
+        imuData.za = newZa;
 
         imuData.Accelroll = atan2(imuData.ya, imuData.za) * 180.0 / PI;
         imuData.Accelpitch = atan2(-imuData.xa, sqrt(imuData.ya * imuData.ya + imuData.za * imuData.za)) * 180.0 / PI;
