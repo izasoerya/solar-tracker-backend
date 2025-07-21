@@ -28,50 +28,48 @@ int8_t xVal = 0;
 int8_t yVal = 0;
 float angleX = 0;
 float angleY = 0;
-uint16_t sunX = 0;
-uint16_t sunY = 0;
+uint8_t sunX = 0;
+uint8_t sunY = 0;
 
 Scheduler scheduler;
 
-Task serveUI(500, TASK_FOREVER, []()
-			 {
-    if (appState == AppState::AUTOMATIC) {
-        ui.showAutomatic(
+// === Function Prototypes ===
+void handleUI();
+void handleSensorUpdate();
+void handleControl();
+void handleInput();
+
+// === Tasks ===
+Task serveUI(1000, TASK_FOREVER, &handleUI);			   // UI updates every 1 second
+Task updateSensors(10, TASK_FOREVER, &handleSensorUpdate); // Sensor updates every 10ms
+Task controlTask(20, TASK_FOREVER, &handleControl);		   // Control every 20ms
+Task inputTask(5, TASK_FOREVER, &handleInput);			   // Input reading every 5ms
+
+// === UI Update Task ===
+void handleUI()
+{
+	if (appState == AppState::AUTOMATIC)
+	{
+		ui.showAutomatic(
 			(sunX + sunY) / 2,
-			angleX, angleY
-		);
-    } else {
-        ui.showManual(
+			angleX, angleY);
+	}
+	else
+	{
+		ui.showManual(
 			(sunX + sunY) / 2,
 			xVal, yVal,
 			angleX, angleY,
-			selection, inEditMode
-		);
-    } });
-
-void setup()
-{
-	Serial.begin(115200);
-	Wire.begin();
-
-	ui.init();
-	input.init();
-	mpu.begin();
-	mpu.setGyroSensitivity(1);
-	mpu.setAccelSensitivity(2);
-	ldr.begin();
-
-	scheduler.init();
-	scheduler.addTask(serveUI);
-	serveUI.enable();
+			selection, inEditMode);
+	}
 }
 
-void loop()
+// === Sensor Update Task ===
+void handleSensorUpdate()
 {
-	scheduler.execute();
-	input.update();
 	mpu.update();
 	ldr.update();
+
 	ModelIMU imuData = mpu.getModelIMU();
 	imu.update(imuData);
 
@@ -79,6 +77,25 @@ void loop()
 	angleY = imu.getPitch();
 	sunX = ldr.getSumX();
 	sunY = ldr.getSumY();
+}
+
+// === Control Task ===
+void handleControl()
+{
+	if (appState == AppState::AUTOMATIC)
+	{
+		// control.runAutomatic(sunX, sunY);
+	}
+	else if (appState == AppState::MANUAL)
+	{
+		control.runManual(xVal, yVal, angleX, angleY);
+	}
+}
+
+// === Input Handling Task ===
+void handleInput()
+{
+	input.update();
 
 	if (appState == AppState::AUTOMATIC)
 	{
@@ -88,7 +105,6 @@ void loop()
 			selection = ManualSelection::X;
 			inEditMode = false;
 		}
-		// control.runAutomatic(sunX, sunY);
 	}
 	else if (appState == AppState::MANUAL)
 	{
@@ -118,16 +134,40 @@ void loop()
 			else
 			{
 				int newSel = static_cast<int>(selection) + dir;
-				if (newSel < 0)
-					newSel = 0;
-				if (newSel >= static_cast<int>(ManualSelection::COUNT))
-					newSel = static_cast<int>(ManualSelection::COUNT) - 1;
+				newSel = constrain(newSel, 0, static_cast<int>(ManualSelection::COUNT) - 1);
 				selection = static_cast<ManualSelection>(newSel);
 			}
 		}
-		control.runManual(xVal, yVal, angleX, angleY);
-		delay(5);
 	}
+}
+
+void setup()
+{
+	Serial.begin(115200);
+	Wire.begin();
+
+	ui.init();
+	input.init();
+	mpu.begin();
+	mpu.setGyroSensitivity(1);
+	mpu.setAccelSensitivity(2);
+	ldr.begin();
+
+	scheduler.init();
+	scheduler.addTask(serveUI);
+	scheduler.addTask(updateSensors);
+	scheduler.addTask(controlTask);
+	scheduler.addTask(inputTask);
+
+	serveUI.enable();
+	updateSensors.enable();
+	controlTask.enable();
+	inputTask.enable();
+}
+
+void loop()
+{
+	scheduler.execute();
 }
 
 // #include <Arduino.h>
