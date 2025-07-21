@@ -18,17 +18,15 @@ private:
         SEEKING,
         HOLDING
     };
-
     ControlState stateX = SEEKING;
     ControlState stateY = SEEKING;
     int8_t lastAxisX;
     int8_t lastAxisY;
-    Motor motorX = driverX;
-    Motor motorY = driverY;
+    Motor &motorX = driverX;
+    Motor &motorY = driverY;
 
-    const uint8_t MAX_MOTOR_SPEED = 255;
-    const float AUTOMATIC_THRESHOLD = 0.1;
-    const float OFFSET_ANGLE = 1.0;
+    const uint8_t MAX_MOTOR_SPEED = 150;
+    const uint8_t OFFSET_ANGLE = 10;
 
 public:
     ControlSystem();
@@ -38,6 +36,7 @@ public:
     void runAutomatic(float centerVectorX, float centerVectorY);
     void mockX();
     void mockY();
+    void mockXY(bool dir);
 };
 
 ControlSystem::ControlSystem() : stateX(SEEKING), lastAxisX(-128), stateY(SEEKING), lastAxisY(-128) {}
@@ -46,38 +45,41 @@ ControlSystem::~ControlSystem() {}
 
 void ControlSystem::runManual(int8_t axisX, int8_t axisY, float roll, float pitch)
 {
-    // --- X-Axis Control ---
+    int16_t rollScaled = static_cast<int16_t>(roll * 10);
+    int16_t pitchScaled = static_cast<int16_t>(pitch * 10);
+    int16_t targetX = static_cast<int16_t>(axisX * 10);
+    int16_t targetY = static_cast<int16_t>(axisY * 10);
+
+    int16_t errorX = targetX - rollScaled;
+    int16_t errorY = targetY - pitchScaled;
+
+    // --- X Axis ---
     if (axisX != lastAxisX)
     {
         stateX = SEEKING;
         lastAxisX = axisX;
     }
 
-    float errorX = axisX - roll;
-
     switch (stateX)
     {
     case SEEKING:
-        if (fabs(errorX) < OFFSET_ANGLE)
+        if (abs(errorX) <= OFFSET_ANGLE)
         {
             motorX.stop();
             stateX = HOLDING;
         }
+        else if (errorX > 0)
+        {
+            motorX.turnRight(MAX_MOTOR_SPEED);
+        }
         else
         {
-            if (errorX > 0)
-            {
-                motorX.turnRight(MAX_MOTOR_SPEED);
-            }
-            else
-            { // errorX < 0
-                motorX.turnLeft(MAX_MOTOR_SPEED);
-            }
+            motorX.turnLeft(MAX_MOTOR_SPEED);
         }
         break;
 
     case HOLDING:
-        if (fabs(errorX) > OFFSET_ANGLE)
+        if (abs(errorX) > OFFSET_ANGLE + 5) // hysteresis
         {
             stateX = SEEKING;
         }
@@ -88,38 +90,33 @@ void ControlSystem::runManual(int8_t axisX, int8_t axisY, float roll, float pitc
         break;
     }
 
-    // --- Y-Axis Control ---
+    // --- Y Axis ---
     if (axisY != lastAxisY)
     {
         stateY = SEEKING;
         lastAxisY = axisY;
     }
 
-    float errorY = axisY - pitch;
-
     switch (stateY)
     {
     case SEEKING:
-        if (fabs(errorY) < OFFSET_ANGLE)
+        if (abs(errorY) <= OFFSET_ANGLE)
         {
             motorY.stop();
             stateY = HOLDING;
         }
+        else if (errorY > 0)
+        {
+            motorY.turnRight(MAX_MOTOR_SPEED);
+        }
         else
         {
-            if (errorY > 0)
-            {
-                motorY.turnRight(MAX_MOTOR_SPEED);
-            }
-            else
-            { // errorY < 0
-                motorY.turnLeft(MAX_MOTOR_SPEED);
-            }
+            motorY.turnLeft(MAX_MOTOR_SPEED);
         }
         break;
 
     case HOLDING:
-        if (fabs(errorY) > OFFSET_ANGLE)
+        if (abs(errorY) > OFFSET_ANGLE + 5)
         {
             stateY = SEEKING;
         }
@@ -133,26 +130,26 @@ void ControlSystem::runManual(int8_t axisX, int8_t axisY, float roll, float pitc
 
 void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
 {
-    if (centerVectorX > AUTOMATIC_THRESHOLD)
+    if (centerVectorX > OFFSET_ANGLE)
     {
-        motorX.turnLeft(255);
+        motorX.turnLeft(MAX_MOTOR_SPEED);
     }
-    else if (centerVectorX < -AUTOMATIC_THRESHOLD)
+    else if (centerVectorX < -OFFSET_ANGLE)
     {
-        motorX.turnRight(255);
+        motorX.turnRight(MAX_MOTOR_SPEED);
     }
     else
     {
         motorX.stop();
     }
 
-    if (centerVectorY > AUTOMATIC_THRESHOLD)
+    if (centerVectorY > OFFSET_ANGLE)
     {
-        motorY.turnLeft(255);
+        motorY.turnLeft(MAX_MOTOR_SPEED);
     }
-    else if (centerVectorY < -AUTOMATIC_THRESHOLD)
+    else if (centerVectorY < -OFFSET_ANGLE)
     {
-        motorY.turnRight(255);
+        motorY.turnRight(MAX_MOTOR_SPEED);
     }
     else
     {
@@ -160,7 +157,18 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
     }
 }
 
+void ControlSystem::mockX()
+{
+    motorX.turnLeft(MAX_MOTOR_SPEED);
+}
+
 void ControlSystem::mockY()
 {
-    motorY.turnLeft(255);
+    motorY.turnLeft(MAX_MOTOR_SPEED);
+}
+
+void ControlSystem::mockXY(bool dir)
+{
+    motorX.turnLeft(MAX_MOTOR_SPEED);
+    motorY.turnLeft(MAX_MOTOR_SPEED);
 }
