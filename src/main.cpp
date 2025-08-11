@@ -40,26 +40,33 @@ void handleControl();
 void handleInput();
 
 // === Tasks ===
-Task serveUI(1000, TASK_FOREVER, &handleUI);			   // UI updates every 1 second
-Task updateSensors(10, TASK_FOREVER, &handleSensorUpdate); // Sensor updates every 10ms
-Task controlTask(20, TASK_FOREVER, &handleControl);		   // Control every 20ms
-Task inputTask(5, TASK_FOREVER, &handleInput);			   // Input reading every 5ms
+Task serveUI(1000, TASK_FOREVER, &handleUI);			  // UI updates every 1 second
+Task updateSensors(8, TASK_FOREVER, &handleSensorUpdate); // Sensor updates every 10ms
+Task controlTask(20, TASK_FOREVER, &handleControl);		  // Control every 20ms
+Task inputTask(5, TASK_FOREVER, &handleInput);			  // Input reading every 5ms
 
 // === UI Update Task ===
 void handleUI()
 {
 	if (appState == AppState::AUTOMATIC)
 	{
-		ui.showAutomatic(
-			(sunX + sunY) / 2,
-			angleX, angleY);
+		// ui.showAutomatic(
+		// 	(sunX + sunY) / 2,
+		// 	angleX, angleY);
+
+		ui.showDebugLDR(ldr.getRawValue(5),
+						ldr.getRawValue(4),
+						ldr.getRawValue(3),
+						ldr.getRawValue(2),
+						ldr.getRawValue(1),
+						ldr.getRawValue(0));
 	}
 	else
 	{
 		ui.showManual(
 			(sunX + sunY) / 2,
 			xVal, yVal,
-			angleX, angleY,
+			angleX * 1.268 + 0.547, angleY * 1.326 + 0.233,
 			selection, inEditMode);
 	}
 }
@@ -88,7 +95,7 @@ void handleControl()
 	}
 	else if (appState == AppState::MANUAL)
 	{
-		control.runManual(xVal, yVal, angleX, angleY);
+		control.runManual((xVal - 0.547) / 1.268, (yVal - 0.233) / 1.326, angleX, angleY);
 	}
 }
 
@@ -149,8 +156,9 @@ void setup()
 	ui.init();
 	input.init();
 	mpu.begin();
-	mpu.setGyroSensitivity(1);
-	mpu.setAccelSensitivity(2);
+	mpu.setGyroSensitivity(0);
+	mpu.setAccelSensitivity(0);
+	mpu.setFilterBandwidth(4);
 	ldr.begin();
 
 	scheduler.init();
@@ -169,21 +177,3 @@ void loop()
 {
 	scheduler.execute();
 }
-
-// #include <Arduino.h>
-// #include <motor.h>
-
-// Motor driverX(3, 4, 5, 6);
-// Motor driverY(7, 8, 9, 10);
-
-// void setup()
-// {
-// }
-
-// void loop()
-// {
-// 	driverY.turnRight(255);
-// 	delay(10000);
-// 	driverY.turnLeft(255);
-// 	delay(10000);
-// }
