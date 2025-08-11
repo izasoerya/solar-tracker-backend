@@ -13,143 +13,86 @@ Motor driverY(7, 8, 9, 10);
 class ControlSystem
 {
 private:
-    enum ControlState
-    {
-        SEEKING,
-        HOLDING
-    };
-    ControlState stateX = SEEKING;
-    ControlState stateY = SEEKING;
-    int8_t lastAxisX;
-    int8_t lastAxisY;
+    const float Kp_X = 25.0; // Proportional gain for X-axis motor
+    const float Kp_Y = 25.0; // Proportional gain for Y-axis motor
     Motor &motorX = driverX;
     Motor &motorY = driverY;
 
     const uint8_t MAX_MOTOR_SPEED = 150;
-    const uint8_t OFFSET_ANGLE = 10;
+    const uint8_t MIN_MOTOR_SPEED = 75;
+    const float DEAD_ZONE_DEGREES = 0.1;
 
 public:
     ControlSystem();
     ~ControlSystem();
 
-    void runManual(int8_t axisX, int8_t axisY, float roll, float pitch);
+    void runManual(float axisX, float axisY, float roll, float pitch);
     void runAutomatic(float centerVectorX, float centerVectorY);
     void mockX();
     void mockY();
     void mockXY(bool dir);
 };
 
-ControlSystem::ControlSystem() : stateX(SEEKING), lastAxisX(-128), stateY(SEEKING), lastAxisY(-128) {}
+ControlSystem::ControlSystem() {}
 
 ControlSystem::~ControlSystem() {}
 
-void ControlSystem::runManual(int8_t axisX, int8_t axisY, float roll, float pitch)
+void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
 {
-    int16_t rollScaled = static_cast<int16_t>(roll * 10);
-    int16_t pitchScaled = static_cast<int16_t>(pitch * 10);
-    int16_t targetX = static_cast<int16_t>(axisX * 10);
-    int16_t targetY = static_cast<int16_t>(axisY * 10);
+    // --- X Axis Control ---
+    float errorX = axisX - roll;
 
-    int16_t errorX = targetX - rollScaled;
-    int16_t errorY = targetY - pitchScaled;
-
-    // --- X Axis ---
-    if (axisX != lastAxisX)
+    if (abs(errorX) > DEAD_ZONE_DEGREES)
     {
-        stateX = SEEKING;
-        lastAxisX = axisX;
-    }
+        int motorSpeedX = static_cast<int>(Kp_X * errorX);
+        motorSpeedX = constrain(motorSpeedX, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
 
-    switch (stateX)
-    {
-    case SEEKING:
-        if (abs(errorX) <= OFFSET_ANGLE)
+        if (motorSpeedX > 0)
         {
-            motorX.stop();
-            stateX = HOLDING;
+            if (motorSpeedX < MIN_MOTOR_SPEED)
+            {
+                motorSpeedX = MIN_MOTOR_SPEED;
+            }
+            motorX.turnRight(motorSpeedX);
         }
-        else if (errorX > 0)
+        else if (motorSpeedX < 0)
         {
-            motorX.turnRight(MAX_MOTOR_SPEED);
+            if (abs(motorSpeedX) < MIN_MOTOR_SPEED)
+            {
+                motorSpeedX = -MIN_MOTOR_SPEED;
+            }
+            motorX.turnLeft(abs(motorSpeedX));
         }
-        else
-        {
-            motorX.turnLeft(MAX_MOTOR_SPEED);
-        }
-        break;
-
-    case HOLDING:
-        if (abs(errorX) > OFFSET_ANGLE + 5) // hysteresis
-        {
-            stateX = SEEKING;
-        }
-        else
-        {
-            motorX.stop();
-        }
-        break;
-    }
-
-    // --- Y Axis ---
-    if (axisY != lastAxisY)
-    {
-        stateY = SEEKING;
-        lastAxisY = axisY;
-    }
-
-    switch (stateY)
-    {
-    case SEEKING:
-        if (abs(errorY) <= OFFSET_ANGLE)
-        {
-            motorY.stop();
-            stateY = HOLDING;
-        }
-        else if (errorY > 0)
-        {
-            motorY.turnRight(MAX_MOTOR_SPEED);
-        }
-        else
-        {
-            motorY.turnLeft(MAX_MOTOR_SPEED);
-        }
-        break;
-
-    case HOLDING:
-        if (abs(errorY) > OFFSET_ANGLE + 5)
-        {
-            stateY = SEEKING;
-        }
-        else
-        {
-            motorY.stop();
-        }
-        break;
-    }
-}
-
-void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
-{
-    if (centerVectorX > OFFSET_ANGLE)
-    {
-        motorX.turnLeft(MAX_MOTOR_SPEED);
-    }
-    else if (centerVectorX < -OFFSET_ANGLE)
-    {
-        motorX.turnRight(MAX_MOTOR_SPEED);
     }
     else
     {
         motorX.stop();
     }
 
-    if (centerVectorY > OFFSET_ANGLE)
+    // --- Y Axis Control ---
+    float errorY = axisY - pitch;
+
+    if (abs(errorY) > DEAD_ZONE_DEGREES)
     {
-        motorY.turnLeft(MAX_MOTOR_SPEED);
-    }
-    else if (centerVectorY < -OFFSET_ANGLE)
-    {
-        motorY.turnRight(MAX_MOTOR_SPEED);
+        int motorSpeedY = static_cast<int>(Kp_Y * errorY);
+        motorSpeedY = constrain(motorSpeedY, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
+
+        if (motorSpeedY > 0)
+        {
+            if (motorSpeedY < MIN_MOTOR_SPEED)
+            {
+                motorSpeedY = MIN_MOTOR_SPEED;
+            }
+            motorY.turnRight(motorSpeedY);
+        }
+        else if (motorSpeedY < 0)
+        {
+            if (abs(motorSpeedY) < MIN_MOTOR_SPEED)
+            {
+                motorSpeedY = -MIN_MOTOR_SPEED;
+            }
+            motorY.turnLeft(abs(motorSpeedY));
+        }
     }
     else
     {
@@ -157,18 +100,66 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
     }
 }
 
-void ControlSystem::mockX()
+void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
 {
-    motorX.turnLeft(MAX_MOTOR_SPEED);
-}
+    // In automatic mode, the centerVector *is* the error.
+    // The goal is to make the error (the vector) zero.
+    float errorX = centerVectorX;
+    float errorY = centerVectorY;
 
-void ControlSystem::mockY()
-{
-    motorY.turnLeft(MAX_MOTOR_SPEED);
-}
+    // --- X Axis Control ---
+    if (abs(errorX) > DEAD_ZONE_DEGREES)
+    {
+        int motorSpeedX = static_cast<int>(Kp_X * errorX);
+        motorSpeedX = constrain(motorSpeedX, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
 
-void ControlSystem::mockXY(bool dir)
-{
-    motorX.turnLeft(MAX_MOTOR_SPEED);
-    motorY.turnLeft(MAX_MOTOR_SPEED);
+        if (motorSpeedX > 0)
+        {
+            if (motorSpeedX < MIN_MOTOR_SPEED)
+            {
+                motorSpeedX = MIN_MOTOR_SPEED;
+            }
+            motorX.turnRight(motorSpeedX);
+        }
+        else if (motorSpeedX < 0)
+        {
+            if (abs(motorSpeedX) < MIN_MOTOR_SPEED)
+            {
+                motorSpeedX = -MIN_MOTOR_SPEED;
+            }
+            motorX.turnLeft(abs(motorSpeedX));
+        }
+    }
+    else
+    {
+        motorX.stop();
+    }
+
+    // --- Y Axis Control ---
+    if (abs(errorY) > DEAD_ZONE_DEGREES)
+    {
+        int motorSpeedY = static_cast<int>(Kp_Y * errorY);
+        motorSpeedY = constrain(motorSpeedY, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
+
+        if (motorSpeedY > 0)
+        {
+            if (motorSpeedY < MIN_MOTOR_SPEED)
+            {
+                motorSpeedY = MIN_MOTOR_SPEED;
+            }
+            motorY.turnRight(motorSpeedY);
+        }
+        else if (motorSpeedY < 0)
+        {
+            if (abs(motorSpeedY) < MIN_MOTOR_SPEED)
+            {
+                motorSpeedY = -MIN_MOTOR_SPEED;
+            }
+            motorY.turnLeft(abs(motorSpeedY));
+        }
+    }
+    else
+    {
+        motorY.stop();
+    }
 }
