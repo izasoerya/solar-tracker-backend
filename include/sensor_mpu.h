@@ -41,28 +41,24 @@ public:
     void update()
     {
         Wire.beginTransmission(MPU_ADDR);
-        Wire.write(MPU_ACCEL_XOUT_H); // starting register address for accelerometer
-        Wire.endTransmission(false);
-        Wire.requestFrom(MPU_ADDR, byteSize); // request 6 bytes of accelerometer data
+        Wire.write(MPU_ACCEL_XOUT_H);
+        if (Wire.endTransmission(false) != 0)
+        {
+            return;
+        }
 
-        int t = Wire.read();
-        float newXa = (t << 8) | Wire.read();
-        t = Wire.read();
-        float newYa = (t << 8) | Wire.read();
-        t = Wire.read();
-        float newZa = (t << 8) | Wire.read();
+        if (Wire.requestFrom(MPU_ADDR, byteSize) != byteSize)
+        {
+            return;
+        }
 
-        // Sanity check: ignore if value is out of expected range (e.g., > ±32768 for raw, or ±20g for converted)
-        if (isnan(newXa) || abs(newXa) > 32768)
-            newXa = imuData.xa;
-        if (isnan(newYa) || abs(newYa) > 32768)
-            newYa = imuData.ya;
-        if (isnan(newZa) || abs(newZa) > 32768)
-            newZa = imuData.za;
+        int16_t rawXa = (Wire.read() << 8) | Wire.read();
+        int16_t rawYa = (Wire.read() << 8) | Wire.read();
+        int16_t rawZa = (Wire.read() << 8) | Wire.read();
 
-        imuData.xa = newXa;
-        imuData.ya = newYa;
-        imuData.za = newZa;
+        imuData.xa = rawXa;
+        imuData.ya = rawYa;
+        imuData.za = rawZa;
 
         imuData.Accelroll = atan2(imuData.ya, imuData.za) * 180.0 / PI;
         imuData.Accelpitch = atan2(-imuData.xa, sqrt(imuData.ya * imuData.ya + imuData.za * imuData.za)) * 180.0 / PI;
@@ -90,6 +86,15 @@ public:
         Wire.beginTransmission(MPU_ADDR);
         Wire.write(0x1B); // GYRO_CONFIG register
         Wire.write((level & 0x03) << 3);
+        Wire.endTransmission(true);
+    }
+
+    // Set filter bandwidth (1-6 = 5Hz, 10Hz, 21Hz, 44Hz, 94Hz, 184Hz, 260Hz)
+    void setFilterBandwidth(uint8_t level)
+    {
+        Wire.beginTransmission(MPU_ADDR);
+        Wire.write(0x1A);         // The CONFIG register (0x1A)
+        Wire.write(level & 0x07); // Write the level (0-6), masking to ensure it's 3 bits
         Wire.endTransmission(true);
     }
 };
