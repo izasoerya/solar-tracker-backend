@@ -90,19 +90,19 @@ public:
         lcd.print("LDR Debug:");
 
         lcd.setCursor(0, 1);
-        lcd.print("0:");
+        lcd.print("1:");
         lcd.print(ldr0);
-        lcd.print(" 1:");
-        lcd.print(ldr1);
         lcd.print(" 2:");
+        lcd.print(ldr1);
+        lcd.print(" 3:");
         lcd.print(ldr2);
 
         lcd.setCursor(0, 2);
-        lcd.print("3:");
+        lcd.print("4:");
         lcd.print(ldr3);
-        lcd.print(" 4:");
-        lcd.print(ldr4);
         lcd.print(" 5:");
+        lcd.print(ldr4);
+        lcd.print(" 6:");
         lcd.print(ldr5);
     }
 };
