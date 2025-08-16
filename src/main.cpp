@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <TaskScheduler.h>
 
+#include "filter.h"
 #include "user_interface.h"
 #include "user_input.h"
 #include "sensor_mpu.h"
@@ -15,10 +16,11 @@
 UserInterface ui;
 UserInput input;
 SensorMPU mpu;
-byte ldrPins[6] = {A0, A1, A2, A3, A4, A5};
+byte ldrPins[6] = {A0, A1, A2, A3, A6, A7};
 SensorLDR ldr(ldrPins);
 ControlSystem control;
 MadgwickIMU imu;
+LowPassFilter lp[4];
 
 AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
@@ -28,8 +30,10 @@ int8_t xVal = 0;
 int8_t yVal = 0;
 float angleX = 0;
 float angleY = 0;
-uint8_t sunX = 0;
-uint8_t sunY = 0;
+byte sunTop = 0;
+byte sunBot = 0;
+byte sunLeft = 0;
+byte sunRight = 0;
 
 Scheduler scheduler;
 
@@ -54,17 +58,15 @@ void handleUI()
 		// 	(sunX + sunY) / 2,
 		// 	angleX, angleY);
 
-		ui.showDebugLDR(ldr.getRawValue(5),
-						ldr.getRawValue(4),
-						ldr.getRawValue(3),
-						ldr.getRawValue(2),
-						ldr.getRawValue(1),
-						ldr.getRawValue(0));
+		ui.showDebugLDR(sunTop,
+						sunBot,
+						sunLeft,
+						sunRight);
 	}
 	else
 	{
 		ui.showManual(
-			(sunX + sunY) / 2,
+			sunTop, sunBot, sunLeft, sunRight,
 			xVal, yVal,
 			angleX * 1.268 + 0.547, angleY * 1.326 + 0.233,
 			selection, inEditMode);
@@ -82,20 +84,25 @@ void handleSensorUpdate()
 
 	angleX = imu.getRoll();
 	angleY = imu.getPitch();
-	sunX = ldr.getSumX();
-	sunY = ldr.getSumY();
+	sunTop = lp[0].reading(ldr.getRawValue(0) * 0.86);
+	sunLeft = lp[1].reading(ldr.getRawValue(1) * 0.765);
+	sunBot = lp[2].reading(ldr.getRawValue(2));
+	sunRight = lp[3].reading(ldr.getRawValue(3));
 }
 
-// === Control Task ===
 void handleControl()
 {
 	if (appState == AppState::AUTOMATIC)
 	{
-		// control.runAutomatic(sunX, sunY);
+		float diffX = sunTop - sunBot;
+		float diffY = sunLeft - sunRight;
+		control.runAutomatic(diffX, diffY);
 	}
 	else if (appState == AppState::MANUAL)
 	{
-		control.runManual((xVal - 0.547) / 1.268, (yVal - 0.233) / 1.326, angleX, angleY);
+		float raw_target_roll = (xVal - 0.547) / 1.268;
+		float raw_target_pitch = (yVal - 0.233) / 1.326;
+		control.runManual(raw_target_roll, raw_target_pitch, imu.getRoll(), imu.getPitch());
 	}
 }
 
