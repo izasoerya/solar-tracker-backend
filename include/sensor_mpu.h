@@ -3,6 +3,9 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#define SDA_PIN A4
+#define SCL_PIN A5
+
 struct ModelIMU
 {
     float xa;
@@ -44,11 +47,17 @@ public:
         Wire.write(MPU_ACCEL_XOUT_H);
         if (Wire.endTransmission(false) != 0)
         {
+            if (!i2cRecover())
+            {
+                return; // recovery failed, let WDT handle it
+            }
             return;
         }
 
-        if (Wire.requestFrom(MPU_ADDR, byteSize) != byteSize)
+        uint8_t count = Wire.requestFrom(MPU_ADDR, byteSize, true);
+        if (count != byteSize)
         {
+            i2cRecover(); // try to free bus
             return;
         }
 
@@ -96,5 +105,41 @@ public:
         Wire.write(0x1A);         // The CONFIG register (0x1A)
         Wire.write(level & 0x07); // Write the level (0-6), masking to ensure it's 3 bits
         Wire.endTransmission(true);
+    }
+
+    bool i2cRecover()
+    {
+        pinMode(SCL_PIN, OUTPUT);
+        pinMode(SDA_PIN, INPUT_PULLUP);
+
+        // Toggle clock up to 9 times to free SDA
+        for (uint8_t i = 0; i < 9; i++)
+        {
+            if (digitalRead(SDA_PIN) == HIGH)
+            {
+                break; // SDA released → bus is free
+            }
+            digitalWrite(SCL_PIN, LOW);
+            delayMicroseconds(5);
+            digitalWrite(SCL_PIN, HIGH);
+            delayMicroseconds(5);
+        }
+
+        // Generate STOP condition
+        pinMode(SDA_PIN, OUTPUT);
+        digitalWrite(SDA_PIN, LOW);
+        delayMicroseconds(5);
+        digitalWrite(SCL_PIN, HIGH);
+        delayMicroseconds(5);
+        digitalWrite(SDA_PIN, HIGH);
+        delayMicroseconds(5);
+
+        // Reinit I2C
+        Wire.end();
+        Wire.begin();
+        Wire.setWireTimeout(25000, true); // 25ms timeout, auto clear bus
+
+        // Check if SDA is released
+        return (digitalRead(SDA_PIN) == HIGH);
     }
 };
