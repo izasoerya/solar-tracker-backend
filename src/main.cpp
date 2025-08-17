@@ -82,10 +82,10 @@ void handleSensorUpdate()
 	ModelIMU imuData = mpu.getModelIMU();
 	imu.update(imuData);
 
-	angleX = imu.getRoll();
-	angleY = imu.getPitch();
-	sunTop = lp[0].reading(ldr.getRawValue(0) * 0.86);
-	sunLeft = lp[1].reading(ldr.getRawValue(1) * 0.765);
+	angleX = imu.getRoll() + 1;
+	angleY = imu.getPitch() - 0.3;
+	sunTop = lp[0].reading(ldr.getRawValue(0));
+	sunLeft = lp[1].reading(ldr.getRawValue(1));
 	sunBot = lp[2].reading(ldr.getRawValue(2));
 	sunRight = lp[3].reading(ldr.getRawValue(3));
 }
@@ -94,8 +94,11 @@ void handleControl()
 {
 	if (appState == AppState::AUTOMATIC)
 	{
+		// 1. Calculate the raw difference between opposing sensors.
 		float diffX = sunTop - sunBot;
 		float diffY = sunLeft - sunRight;
+
+		// 2. Call the automatic controller with the calculated differences.
 		control.runAutomatic(diffX, diffY);
 	}
 	else if (appState == AppState::MANUAL)
@@ -157,7 +160,6 @@ void handleInput()
 
 void setup()
 {
-	Serial.begin(115200);
 	Wire.begin();
 
 	ui.init();
