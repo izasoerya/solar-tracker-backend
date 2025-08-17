@@ -1,3 +1,8 @@
+/** GENERAL DESCRIPTION
+ * @brief Use 2 motors to independently control X and Y axes using a state machine.
+ * Create motor objects here and assign pinouts.
+ */
+
 #pragma once
 #include <Arduino.h>
 #include "motor.h"
@@ -8,27 +13,14 @@ Motor driverY(7, 8, 9, 10);
 class ControlSystem
 {
 private:
-    // --- Proportional Gains ---
-    const float Kp_X = 25.0;
-    const float Kp_Y = 25.0;
-    const float Kp_AUTO = 5.0;
-
-    // --- State Flags for Automatic Hysteresis ---
-    bool isHoldingX = true; // Start in the HOLDING state
-    bool isHoldingY = true;
-
+    const float Kp_X = 25.0; // Proportional gain for X-axis motor
+    const float Kp_Y = 25.0; // Proportional gain for Y-axis motor
     Motor &motorX = driverX;
     Motor &motorY = driverY;
 
-    // --- Motor Speed & Dead Zone Definitions ---
     const uint8_t MAX_MOTOR_SPEED = 150;
     const uint8_t MIN_MOTOR_SPEED = 75;
     const float DEAD_ZONE_DEGREES = 0.1;
-
-    const uint8_t MAX_MOTOR_SPEED_AUTO = 150;
-    const uint8_t MIN_MOTOR_SPEED_AUTO = 75;
-    const float DEAD_ZONE_AUTO = 0;
-    const float DEAD_ZONE_HYSTERESIS = 3; // Hysteresis value. Motor won't move again until error exceeds (DEAD_ZONE_AUTO + this value).
 
 public:
     ControlSystem();
@@ -36,10 +28,13 @@ public:
 
     void runManual(float axisX, float axisY, float roll, float pitch);
     void runAutomatic(float centerVectorX, float centerVectorY);
-    void stop();
+    void mockX();
+    void mockY();
+    void mockXY(bool dir);
 };
 
 ControlSystem::ControlSystem() {}
+
 ControlSystem::~ControlSystem() {}
 
 void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
@@ -54,11 +49,19 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
 
         if (motorSpeedX > 0)
         {
-            motorX.turnRight(max(motorSpeedX, MIN_MOTOR_SPEED));
+            if (motorSpeedX < MIN_MOTOR_SPEED)
+            {
+                motorSpeedX = MIN_MOTOR_SPEED;
+            }
+            motorX.turnRight(motorSpeedX);
         }
         else if (motorSpeedX < 0)
         {
-            motorX.turnLeft(max(abs(motorSpeedX), MIN_MOTOR_SPEED));
+            if (abs(motorSpeedX) < MIN_MOTOR_SPEED)
+            {
+                motorSpeedX = -MIN_MOTOR_SPEED;
+            }
+            motorX.turnLeft(abs(motorSpeedX));
         }
     }
     else
@@ -76,11 +79,19 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
 
         if (motorSpeedY > 0)
         {
-            motorY.turnRight(max(motorSpeedY, MIN_MOTOR_SPEED));
+            if (motorSpeedY < MIN_MOTOR_SPEED)
+            {
+                motorSpeedY = MIN_MOTOR_SPEED;
+            }
+            motorY.turnRight(motorSpeedY);
         }
         else if (motorSpeedY < 0)
         {
-            motorY.turnLeft(max(abs(motorSpeedY), MIN_MOTOR_SPEED));
+            if (abs(motorSpeedY) < MIN_MOTOR_SPEED)
+            {
+                motorSpeedY = -MIN_MOTOR_SPEED;
+            }
+            motorY.turnLeft(abs(motorSpeedY));
         }
     }
     else
@@ -91,82 +102,64 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
 
 void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
 {
+    // In automatic mode, the centerVector *is* the error.
+    // The goal is to make the error (the vector) zero.
     float errorX = centerVectorX;
     float errorY = centerVectorY;
 
-    if (isHoldingX)
+    // --- X Axis Control ---
+    if (abs(errorX) > DEAD_ZONE_DEGREES + 5)
     {
-        if (abs(errorX) > (DEAD_ZONE_AUTO + DEAD_ZONE_HYSTERESIS))
+        int motorSpeedX = static_cast<int>(Kp_X * errorX);
+        motorSpeedX = constrain(motorSpeedX, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
+
+        if (motorSpeedX > 0)
         {
-            isHoldingX = false;
+            if (motorSpeedX < MIN_MOTOR_SPEED)
+            {
+                motorSpeedX = MIN_MOTOR_SPEED;
+            }
+            motorX.turnRight(motorSpeedX);
         }
-        else
+        else if (motorSpeedX < 0)
         {
-            motorX.stop();
+            if (abs(motorSpeedX) < MIN_MOTOR_SPEED)
+            {
+                motorSpeedX = -MIN_MOTOR_SPEED;
+            }
+            motorX.turnLeft(abs(motorSpeedX));
         }
     }
-
-    if (!isHoldingX)
+    else
     {
-        if (abs(errorX) <= DEAD_ZONE_AUTO)
-        {
-            isHoldingX = true;
-            motorX.stop();
-        }
-        else
-        {
-            int powerLevelX = static_cast<int>(Kp_AUTO * errorX);
-            if (powerLevelX > 0)
-            {
-                int motorSpeedX = map(powerLevelX, 1, 255, MIN_MOTOR_SPEED_AUTO, MAX_MOTOR_SPEED_AUTO);
-                motorX.turnRight(motorSpeedX);
-            }
-            else if (powerLevelX < 0)
-            {
-                int motorSpeedX = map(abs(powerLevelX), 1, 255, MIN_MOTOR_SPEED_AUTO, MAX_MOTOR_SPEED_AUTO);
-                motorX.turnLeft(motorSpeedX);
-            }
-        }
+        motorX.stop();
     }
 
-    if (isHoldingY)
+    // --- Y Axis Control ---
+    if (abs(errorY) > DEAD_ZONE_DEGREES + 5)
     {
-        if (abs(errorY) > (DEAD_ZONE_AUTO + DEAD_ZONE_HYSTERESIS))
+        int motorSpeedY = static_cast<int>(Kp_Y * errorY);
+        motorSpeedY = constrain(motorSpeedY, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
+
+        if (motorSpeedY > 0)
         {
-            isHoldingY = false;
+            if (motorSpeedY < MIN_MOTOR_SPEED)
+            {
+                motorSpeedY = MIN_MOTOR_SPEED;
+            }
+            motorY.turnRight(motorSpeedY);
         }
-        else
+        else if (motorSpeedY < 0)
         {
-            motorY.stop();
+            if (abs(motorSpeedY) < MIN_MOTOR_SPEED)
+            {
+                motorSpeedY = -MIN_MOTOR_SPEED;
+            }
+            motorY.turnLeft(abs(motorSpeedY));
         }
     }
-
-    if (!isHoldingY)
+    else
     {
-        if (abs(errorY) <= DEAD_ZONE_AUTO)
-        {
-            isHoldingY = true;
-            motorY.stop();
-        }
-        else
-        {
-            int powerLevelY = static_cast<int>(Kp_AUTO * errorY);
-            if (powerLevelY > 0)
-            {
-                int motorSpeedY = map(powerLevelY, 1, 255, MIN_MOTOR_SPEED_AUTO, MAX_MOTOR_SPEED_AUTO);
-                motorY.turnRight(motorSpeedY);
-            }
-            else if (powerLevelY < 0)
-            {
-                int motorSpeedY = map(abs(powerLevelY), 1, 255, MIN_MOTOR_SPEED_AUTO, MAX_MOTOR_SPEED_AUTO);
-                motorY.turnLeft(motorSpeedY);
-            }
-        }
+        motorY.stop();
     }
-}
-
-void ControlSystem::stop()
-{
-    motorX.stop();
-    motorY.stop();
 }
