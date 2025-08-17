@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <TaskScheduler.h>
+#include <avr/wdt.h>
 
 #include "filter.h"
 #include "user_interface.h"
@@ -8,6 +9,7 @@
 #include "sensor_ldr.h"
 #include "madgwick_imu.h"
 #include "control_system.h"
+#include "state_save.h"
 
 #define STEP 1
 #define VAL_MIN -60
@@ -21,21 +23,16 @@ SensorLDR ldr(ldrPins);
 ControlSystem control;
 MadgwickIMU imu;
 LowPassFilter lp[4];
+SystemStructure system;
+StateSave stateSystem;
+Scheduler scheduler;
 
-AppState appState = AppState::AUTOMATIC;
-ManualSelection selection = ManualSelection::X;
-bool inEditMode = false;
-
-int8_t xVal = 0;
-int8_t yVal = 0;
 float angleX = 0;
 float angleY = 0;
 byte sunTop = 0;
 byte sunBot = 0;
 byte sunLeft = 0;
 byte sunRight = 0;
-
-Scheduler scheduler;
 
 // === Function Prototypes ===
 void handleUI();
@@ -52,7 +49,7 @@ Task inputTask(5, TASK_FOREVER, &handleInput);			  // Input reading every 5ms
 // === UI Update Task ===
 void handleUI()
 {
-	if (appState == AppState::AUTOMATIC)
+	if (system.state == AppState::AUTOMATIC)
 	{
 		// ui.showAutomatic(
 		// 	(sunX + sunY) / 2,
@@ -67,9 +64,9 @@ void handleUI()
 	{
 		ui.showManual(
 			sunTop, sunBot, sunLeft, sunRight,
-			xVal, yVal,
+			system.xVal, system.yVal,
 			angleX * 1.268 + 0.547, angleY * 1.326 + 0.233,
-			selection, inEditMode);
+			system.selection, system.inEditMode);
 	}
 }
 
@@ -82,29 +79,27 @@ void handleSensorUpdate()
 	ModelIMU imuData = mpu.getModelIMU();
 	imu.update(imuData);
 
-	angleX = imu.getRoll() + 1;
-	angleY = imu.getPitch() - 0.3;
-	sunTop = lp[0].reading(ldr.getRawValue(0));
-	sunLeft = lp[1].reading(ldr.getRawValue(1));
+	angleX = imu.getRoll();
+	angleY = imu.getPitch();
+	sunTop = lp[0].reading(ldr.getRawValue(0) * 0.86);
+	sunLeft = lp[1].reading(ldr.getRawValue(1) * 0.765);
 	sunBot = lp[2].reading(ldr.getRawValue(2));
 	sunRight = lp[3].reading(ldr.getRawValue(3));
+	wdt_reset();
 }
 
 void handleControl()
 {
-	if (appState == AppState::AUTOMATIC)
+	if (system.state == AppState::AUTOMATIC)
 	{
-		// 1. Calculate the raw difference between opposing sensors.
 		float diffX = sunTop - sunBot;
 		float diffY = sunLeft - sunRight;
-
-		// 2. Call the automatic controller with the calculated differences.
 		control.runAutomatic(diffX, diffY);
 	}
-	else if (appState == AppState::MANUAL)
+	else if (system.state == AppState::MANUAL)
 	{
-		float raw_target_roll = (xVal - 0.547) / 1.268;
-		float raw_target_pitch = (yVal - 0.233) / 1.326;
+		float raw_target_roll = (system.xVal - 0.547) / 1.268;
+		float raw_target_pitch = (system.yVal - 0.233) / 1.326;
 		control.runManual(raw_target_roll, raw_target_pitch, imu.getRoll(), imu.getPitch());
 	}
 }
@@ -114,53 +109,60 @@ void handleInput()
 {
 	input.update();
 
-	if (appState == AppState::AUTOMATIC)
+	if (system.state == AppState::AUTOMATIC)
 	{
 		if (input.wasPressed())
 		{
-			appState = AppState::MANUAL;
-			selection = ManualSelection::X;
-			inEditMode = false;
+			system.state = AppState::MANUAL;
+			system.selection = ManualSelection::X;
+			system.inEditMode = false;
 		}
 	}
-	else if (appState == AppState::MANUAL)
+	else if (system.state == AppState::MANUAL)
 	{
 		if (input.wasPressed())
 		{
-			if (selection == ManualSelection::BACK)
+			if (system.selection == ManualSelection::BACK)
 			{
-				appState = AppState::AUTOMATIC;
-				inEditMode = false;
+				system.state = AppState::AUTOMATIC;
+				system.inEditMode = false;
 			}
 			else
 			{
-				inEditMode = !inEditMode;
+				system.inEditMode = !system.inEditMode;
 			}
 		}
 
 		int dir = input.getDirection();
 		if (dir != 0)
 		{
-			if (inEditMode)
+			if (system.inEditMode)
 			{
-				if (selection == ManualSelection::X)
-					xVal = constrain(xVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
-				else if (selection == ManualSelection::Y)
-					yVal = constrain(yVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
+				if (system.selection == ManualSelection::X)
+					system.xVal = constrain(system.xVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
+				else if (system.selection == ManualSelection::Y)
+					system.yVal = constrain(system.yVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
 			}
 			else
 			{
-				int newSel = static_cast<int>(selection) + dir;
+				int newSel = static_cast<int>(system.selection) + dir;
 				newSel = constrain(newSel, 0, static_cast<int>(ManualSelection::COUNT) - 1);
-				selection = static_cast<ManualSelection>(newSel);
+				system.selection = static_cast<ManualSelection>(newSel);
 			}
 		}
 	}
 }
 
+ISR(WDT_vect)
+{
+	stateSystem.updateState(system);
+}
+
 void setup()
 {
+	Serial.begin(115200);
 	Wire.begin();
+	Wire.setWireTimeout(25000); // 25ms timeout instead of infinite block
 
 	ui.init();
 	input.init();
@@ -169,6 +171,11 @@ void setup()
 	mpu.setAccelSensitivity(0);
 	mpu.setFilterBandwidth(4);
 	ldr.begin();
+	stateSystem.initialization();
+	system = stateSystem.getState();
+	wdt_disable(); /* Disable the watchdog and wait for more than 2 seconds */
+	delay(3000);   /* Done so that the Arduino doesn't keep resetting infinitely in case of wrong configuration */
+	wdt_enable(WDTO_60MS);
 
 	scheduler.init();
 	scheduler.addTask(serveUI);
