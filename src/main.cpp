@@ -23,7 +23,7 @@ SensorLDR ldr(ldrPins);
 ControlSystem control;
 MadgwickIMU imu;
 LowPassFilter lp[4];
-SystemStructure system;
+SystemStructure deviceSystem;
 StateSave stateSystem;
 Scheduler scheduler;
 
@@ -49,7 +49,7 @@ Task inputTask(5, TASK_FOREVER, &handleInput);			  // Input reading every 5ms
 // === UI Update Task ===
 void handleUI()
 {
-	if (system.state == AppState::AUTOMATIC)
+	if (deviceSystem.state == AppState::AUTOMATIC)
 	{
 		// ui.showAutomatic(
 		// 	(sunX + sunY) / 2,
@@ -64,9 +64,9 @@ void handleUI()
 	{
 		ui.showManual(
 			sunTop, sunBot, sunLeft, sunRight,
-			system.xVal, system.yVal,
+			deviceSystem.xVal, deviceSystem.yVal,
 			angleX * 1.268 + 0.547, angleY * 1.326 + 0.233,
-			system.selection, system.inEditMode);
+			deviceSystem.selection, deviceSystem.inEditMode);
 	}
 }
 
@@ -90,16 +90,16 @@ void handleSensorUpdate()
 
 void handleControl()
 {
-	if (system.state == AppState::AUTOMATIC)
+	if (deviceSystem.state == AppState::AUTOMATIC)
 	{
 		float diffX = sunTop - sunBot;
 		float diffY = sunLeft - sunRight;
 		control.runAutomatic(diffX, diffY);
 	}
-	else if (system.state == AppState::MANUAL)
+	else if (deviceSystem.state == AppState::MANUAL)
 	{
-		float raw_target_roll = (system.xVal - 0.547) / 1.268;
-		float raw_target_pitch = (system.yVal - 0.233) / 1.326;
+		float raw_target_roll = (deviceSystem.xVal - 0.547) / 1.268;
+		float raw_target_pitch = (deviceSystem.yVal - 0.233) / 1.326;
 		control.runManual(raw_target_roll, raw_target_pitch, imu.getRoll(), imu.getPitch());
 	}
 }
@@ -109,45 +109,45 @@ void handleInput()
 {
 	input.update();
 
-	if (system.state == AppState::AUTOMATIC)
+	if (deviceSystem.state == AppState::AUTOMATIC)
 	{
 		if (input.wasPressed())
 		{
-			system.state = AppState::MANUAL;
-			system.selection = ManualSelection::X;
-			system.inEditMode = false;
+			deviceSystem.state = AppState::MANUAL;
+			deviceSystem.selection = ManualSelection::X;
+			deviceSystem.inEditMode = false;
 		}
 	}
-	else if (system.state == AppState::MANUAL)
+	else if (deviceSystem.state == AppState::MANUAL)
 	{
 		if (input.wasPressed())
 		{
-			if (system.selection == ManualSelection::BACK)
+			if (deviceSystem.selection == ManualSelection::BACK)
 			{
-				system.state = AppState::AUTOMATIC;
-				system.inEditMode = false;
+				deviceSystem.state = AppState::AUTOMATIC;
+				deviceSystem.inEditMode = false;
 			}
 			else
 			{
-				system.inEditMode = !system.inEditMode;
+				deviceSystem.inEditMode = !deviceSystem.inEditMode;
 			}
 		}
 
 		int dir = input.getDirection();
 		if (dir != 0)
 		{
-			if (system.inEditMode)
+			if (deviceSystem.inEditMode)
 			{
-				if (system.selection == ManualSelection::X)
-					system.xVal = constrain(system.xVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
-				else if (system.selection == ManualSelection::Y)
-					system.yVal = constrain(system.yVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
+				if (deviceSystem.selection == ManualSelection::X)
+					deviceSystem.xVal = constrain(deviceSystem.xVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
+				else if (deviceSystem.selection == ManualSelection::Y)
+					deviceSystem.yVal = constrain(deviceSystem.yVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
 			}
 			else
 			{
-				int newSel = static_cast<int>(system.selection) + dir;
+				int newSel = static_cast<int>(deviceSystem.selection) + dir;
 				newSel = constrain(newSel, 0, static_cast<int>(ManualSelection::COUNT) - 1);
-				system.selection = static_cast<ManualSelection>(newSel);
+				deviceSystem.selection = static_cast<ManualSelection>(newSel);
 			}
 		}
 	}
@@ -155,7 +155,7 @@ void handleInput()
 
 ISR(WDT_vect)
 {
-	stateSystem.updateState(system);
+	stateSystem.updateState(deviceSystem);
 }
 
 void setup()
@@ -172,7 +172,7 @@ void setup()
 	mpu.setFilterBandwidth(4);
 	ldr.begin();
 	stateSystem.initialization();
-	system = stateSystem.getState();
+	deviceSystem = stateSystem.getState();
 	wdt_disable(); /* Disable the watchdog and wait for more than 2 seconds */
 	delay(3000);   /* Done so that the Arduino doesn't keep resetting infinitely in case of wrong configuration */
 	wdt_enable(WDTO_60MS);
