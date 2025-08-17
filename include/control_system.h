@@ -1,8 +1,3 @@
-/** GENERAL DESCRIPTION
- * @brief Use 2 motors to independently control X and Y axes using a state machine.
- * Create motor objects here and assign pinouts.
- */
-
 #pragma once
 #include <Arduino.h>
 #include "motor.h"
@@ -13,14 +8,27 @@ Motor driverY(7, 8, 9, 10);
 class ControlSystem
 {
 private:
-    const float Kp_X = 25.0; // Proportional gain for X-axis motor
-    const float Kp_Y = 25.0; // Proportional gain for Y-axis motor
+    // --- Proportional Gains ---
+    const float Kp_X = 25.0;
+    const float Kp_Y = 25.0;
+    const float Kp_AUTO = 5.0;
+
+    // --- State Flags for Automatic Hysteresis ---
+    bool isHoldingX = true; // Start in the HOLDING state
+    bool isHoldingY = true;
+
     Motor &motorX = driverX;
     Motor &motorY = driverY;
 
+    // --- Motor Speed & Dead Zone Definitions ---
     const uint8_t MAX_MOTOR_SPEED = 150;
     const uint8_t MIN_MOTOR_SPEED = 75;
     const float DEAD_ZONE_DEGREES = 0.1;
+
+    const uint8_t MAX_MOTOR_SPEED_AUTO = 150;
+    const uint8_t MIN_MOTOR_SPEED_AUTO = 75;
+    const float DEAD_ZONE_AUTO = 0;
+    const float DEAD_ZONE_HYSTERESIS = 3; // Hysteresis value.
 
 public:
     ControlSystem();
@@ -28,13 +36,11 @@ public:
 
     void runManual(float axisX, float axisY, float roll, float pitch);
     void runAutomatic(float centerVectorX, float centerVectorY);
-    void mockX();
-    void mockY();
-    void mockXY(bool dir);
+    void runThreshold(float valueX, float valueY, float threshold); // <-- NEW METHOD
+    void stop();
 };
 
 ControlSystem::ControlSystem() {}
-
 ControlSystem::~ControlSystem() {}
 
 void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
@@ -102,8 +108,6 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
 
 void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
 {
-    // In automatic mode, the centerVector *is* the error.
-    // The goal is to make the error (the vector) zero.
     float errorX = centerVectorX;
     float errorY = centerVectorY;
 
@@ -162,4 +166,40 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
     {
         motorY.stop();
     }
+}
+
+void ControlSystem::runThreshold(float valueX, float valueY, float threshold)
+{
+    if (valueX > threshold)
+    {
+        motorX.turnLeft(MIN_MOTOR_SPEED_AUTO);
+    }
+    else if (valueX < -threshold)
+    {
+        motorX.turnRight(MIN_MOTOR_SPEED_AUTO);
+    }
+    else
+    {
+        motorX.stop();
+    }
+
+    // --- Y Axis Control ---
+    if (valueY > threshold)
+    {
+        motorY.turnLeft(MIN_MOTOR_SPEED_AUTO);
+    }
+    else if (valueY < -threshold)
+    {
+        motorY.turnRight(MIN_MOTOR_SPEED_AUTO);
+    }
+    else
+    {
+        motorY.stop();
+    }
+}
+
+void ControlSystem::stop()
+{
+    motorX.stop();
+    motorY.stop();
 }
