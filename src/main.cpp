@@ -15,7 +15,7 @@
 
 UserInterface ui;
 UserInput input;
-SensorMPU mpu;
+SensorFXOSFXAS mpu;
 byte ldrPins[6] = {A0, A1, A2, A3, A6, A7};
 SensorLDR ldr(ldrPins);
 ControlSystem control;
@@ -103,7 +103,7 @@ void handleControl()
 	{
 		float diffX = sunTop - sunLeft;
 		float diffY = sunBot - sunRight;
-		control.runRuleBased(sunTop, sunBot, sunLeft, sunRight);
+		// control.runRuleBased(sunTop, sunBot, sunLeft, sunRight);
 	}
 	else if (appState == AppState::MANUAL)
 	{
