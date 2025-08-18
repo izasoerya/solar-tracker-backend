@@ -152,3 +152,68 @@ public:
         active = false;
     }
 };
+
+#include <Adafruit_FXOS8700.h>
+
+class SensorFXOSFXAS
+{
+private:
+    Adafruit_FXOS8700 fxos = Adafruit_FXOS8700(0x8700A, 0x8700B);
+    bool active = false;
+    ModelIMU imuData;
+
+public:
+    SensorFXOSFXAS() {}
+    ~SensorFXOSFXAS() {}
+
+    void begin()
+    {
+        if (!fxos.begin())
+        {
+            active = false;
+            return;
+        }
+        active = true;
+    }
+
+    void update()
+    {
+        if (!active)
+            return;
+
+        sensors_event_t aevent, mevent, gevent;
+        fxos.getEvent(&aevent, &mevent);
+
+        imuData.xa = aevent.acceleration.x;
+        imuData.ya = aevent.acceleration.y;
+        imuData.za = aevent.acceleration.z;
+        imuData.xg = gevent.gyro.x;
+        imuData.yg = gevent.gyro.y;
+        imuData.zg = gevent.gyro.z;
+
+        imuData.Accelroll = atan2(imuData.ya, imuData.za) * 180.0 / PI;
+        imuData.Accelpitch = atan2(-imuData.xa, sqrt(imuData.ya * imuData.ya + imuData.za * imuData.za)) * 180.0 / PI;
+    }
+
+    float getAccelX() const { return imuData.xa; }
+    float getAccelY() const { return imuData.ya; }
+    float getAccelZ() const { return imuData.za; }
+    float getGyroX() const { return imuData.xg; }
+    float getGyroY() const { return imuData.yg; }
+    float getGyroZ() const { return imuData.zg; }
+    float getAccelRoll() const { return imuData.Accelroll; }
+    float getAccelPitch() const { return imuData.Accelpitch; }
+    ModelIMU getModelIMU() const { return imuData; }
+
+    // Dummy functions for compatibility (not supported by Adafruit lib)
+    void setAccelSensitivity(uint8_t level) {}
+    void setGyroSensitivity(uint8_t level) {}
+    void setFilterBandwidth(uint8_t level) {}
+
+    bool isActive() { return active; }
+
+    void end()
+    {
+        active = false;
+    }
+};
