@@ -76,7 +76,7 @@ void handleUI()
 // === Sensor Update Task ===
 void handleSensorUpdate()
 {
-	if (appState == AppState::MANUAL && mpu.isActive() && madgwick.isActive())
+	if (appState == AppState::MANUAL)
 	{
 		mpu.update();
 		ldr.update();
@@ -89,7 +89,6 @@ void handleSensorUpdate()
 	}
 	else
 	{
-		// AUTOMATIC mode → only LDR is relevant
 		ldr.update();
 		sunTop = lp[0].reading(ldr.getRawValue(0));
 		sunLeft = lp[1].reading(ldr.getRawValue(1));
@@ -102,12 +101,9 @@ void handleControl()
 {
 	if (appState == AppState::AUTOMATIC)
 	{
-		// 1. Calculate the raw difference between opposing sensors.
-		float diffX = sunTop - sunBot;
-		float diffY = sunLeft - sunRight;
-
-		// 2. Call the automatic controller with the calculated differences.
-		control.runAutomatic(diffX, diffY);
+		float diffX = sunTop - sunLeft;
+		float diffY = sunBot - sunRight;
+		control.runRuleBased(sunTop, sunBot, sunLeft, sunRight);
 	}
 	else if (appState == AppState::MANUAL)
 	{
