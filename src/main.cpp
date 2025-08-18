@@ -19,7 +19,7 @@ SensorMPU mpu;
 byte ldrPins[6] = {A0, A1, A2, A3, A6, A7};
 SensorLDR ldr(ldrPins);
 ControlSystem control;
-MadgwickIMU imu;
+MadgwickIMU madgwick;
 LowPassFilter lp[4];
 
 AppState appState = AppState::AUTOMATIC;
@@ -76,18 +76,26 @@ void handleUI()
 // === Sensor Update Task ===
 void handleSensorUpdate()
 {
-	mpu.update();
-	ldr.update();
+	if (appState == AppState::MANUAL && mpu.isActive() && madgwick.isActive())
+	{
+		mpu.update();
+		ldr.update();
 
-	ModelIMU imuData = mpu.getModelIMU();
-	imu.update(imuData);
+		ModelIMU imuData = mpu.getModelIMU();
+		madgwick.update(imuData);
 
-	angleX = imu.getRoll();
-	angleY = imu.getPitch();
-	sunTop = lp[0].reading(ldr.getRawValue(0));
-	sunLeft = lp[1].reading(ldr.getRawValue(1));
-	sunBot = lp[2].reading(ldr.getRawValue(2));
-	sunRight = lp[3].reading(ldr.getRawValue(3));
+		angleX = madgwick.getRoll();
+		angleY = madgwick.getPitch();
+	}
+	else
+	{
+		// AUTOMATIC mode → only LDR is relevant
+		ldr.update();
+		sunTop = lp[0].reading(ldr.getRawValue(0));
+		sunLeft = lp[1].reading(ldr.getRawValue(1));
+		sunBot = lp[2].reading(ldr.getRawValue(2));
+		sunRight = lp[3].reading(ldr.getRawValue(3));
+	}
 }
 
 void handleControl()
@@ -99,13 +107,13 @@ void handleControl()
 		float diffY = sunLeft - sunRight;
 
 		// 2. Call the automatic controller with the calculated differences.
-		control.runThreshold(diffX, diffY, 20);
+		control.runAutomatic(diffX, diffY);
 	}
 	else if (appState == AppState::MANUAL)
 	{
 		float raw_target_roll = (((xVal - 0.547) / 1.268) + 1.12) / 1.06;
 		float raw_target_pitch = (((yVal - 0.233) / 1.326) - 0.27) / 0.98;
-		control.runManual(raw_target_roll, raw_target_pitch, imu.getRoll(), imu.getPitch());
+		control.runManual(raw_target_roll, raw_target_pitch, madgwick.getRoll(), madgwick.getPitch());
 	}
 }
 
