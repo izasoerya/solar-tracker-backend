@@ -28,9 +28,11 @@ public:
 
     void runManual(float axisX, float axisY, float roll, float pitch);
     void runAutomatic(float centerVectorX, float centerVectorY);
+    void runThreshold(float valueX, float valueY, float threshold);
     void mockX();
     void mockY();
     void mockXY(bool dir);
+    void stop();
 };
 
 ControlSystem::ControlSystem() {}
@@ -100,66 +102,144 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
     }
 }
 
+enum AxisState
+{
+    SEEKING,
+    HOLDING
+};
+AxisState stateX = SEEKING;
+AxisState stateY = SEEKING;
+
 void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
 {
-    // In automatic mode, the centerVector *is* the error.
-    // The goal is to make the error (the vector) zero.
+    static AxisState stateX = SEEKING;
+    static AxisState stateY = SEEKING;
+
+    const float THRESHOLD_DEGREES = 5.0; // Move until within this threshold, then apply deadband
+
     float errorX = centerVectorX;
     float errorY = centerVectorY;
 
-    // --- X Axis Control ---
-    if (abs(errorX) > DEAD_ZONE_DEGREES + 5)
+    // --- X Axis ---
+    switch (stateX)
     {
-        int motorSpeedX = static_cast<int>(Kp_X * errorX);
-        motorSpeedX = constrain(motorSpeedX, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
+    case SEEKING:
+        if (abs(errorX) <= THRESHOLD_DEGREES)
+        {
+            motorX.stop();
+            stateX = HOLDING;
+        }
+        else
+        {
+            int motorSpeedX = static_cast<int>(Kp_X * errorX);
+            motorSpeedX = constrain(motorSpeedX, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
 
-        if (motorSpeedX > 0)
-        {
-            if (motorSpeedX < MIN_MOTOR_SPEED)
+            if (motorSpeedX > 0)
             {
-                motorSpeedX = MIN_MOTOR_SPEED;
+                if (motorSpeedX < MIN_MOTOR_SPEED)
+                    motorSpeedX = MIN_MOTOR_SPEED;
+                motorX.turnRight(motorSpeedX);
             }
-            motorX.turnRight(motorSpeedX);
-        }
-        else if (motorSpeedX < 0)
-        {
-            if (abs(motorSpeedX) < MIN_MOTOR_SPEED)
+            else if (motorSpeedX < 0)
             {
-                motorSpeedX = -MIN_MOTOR_SPEED;
+                if (abs(motorSpeedX) < MIN_MOTOR_SPEED)
+                    motorSpeedX = -MIN_MOTOR_SPEED;
+                motorX.turnLeft(abs(motorSpeedX));
             }
-            motorX.turnLeft(abs(motorSpeedX));
         }
+        break;
+    case HOLDING:
+        if (abs(errorX) > THRESHOLD_DEGREES + DEAD_ZONE_DEGREES)
+        {
+            stateX = SEEKING;
+        }
+        else
+        {
+            motorX.stop();
+        }
+        break;
+    }
+
+    // --- Y Axis ---
+    switch (stateY)
+    {
+    case SEEKING:
+        if (abs(errorY) <= THRESHOLD_DEGREES)
+        {
+            motorY.stop();
+            stateY = HOLDING;
+        }
+        else
+        {
+            int motorSpeedY = static_cast<int>(Kp_Y * errorY);
+            motorSpeedY = constrain(motorSpeedY, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
+
+            if (motorSpeedY > 0)
+            {
+                if (motorSpeedY < MIN_MOTOR_SPEED)
+                    motorSpeedY = MIN_MOTOR_SPEED;
+                motorY.turnRight(motorSpeedY);
+            }
+            else if (motorSpeedY < 0)
+            {
+                if (abs(motorSpeedY) < MIN_MOTOR_SPEED)
+                    motorSpeedY = -MIN_MOTOR_SPEED;
+                motorY.turnLeft(abs(motorSpeedY));
+            }
+        }
+        break;
+    case HOLDING:
+        if (abs(errorY) > THRESHOLD_DEGREES + DEAD_ZONE_DEGREES)
+        {
+            stateY = SEEKING;
+        }
+        else
+        {
+            motorY.stop();
+        }
+        break;
+    }
+}
+
+void ControlSystem::runThreshold(float valueX, float valueY, float threshold)
+{
+    // --- X Axis Control ---
+    if (valueX > threshold)
+    {
+        // Value is too high, move left (or whichever direction is negative)
+        motorX.turnLeft(120);
+    }
+    else if (valueX < -threshold)
+    {
+        // Value is too low, move right (or whichever direction is positive)
+        motorX.turnRight(120);
     }
     else
     {
+        // Value is within the acceptable range, stop the motor.
         motorX.stop();
     }
 
     // --- Y Axis Control ---
-    if (abs(errorY) > DEAD_ZONE_DEGREES + 5)
+    if (valueY > threshold)
     {
-        int motorSpeedY = static_cast<int>(Kp_Y * errorY);
-        motorSpeedY = constrain(motorSpeedY, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
-
-        if (motorSpeedY > 0)
-        {
-            if (motorSpeedY < MIN_MOTOR_SPEED)
-            {
-                motorSpeedY = MIN_MOTOR_SPEED;
-            }
-            motorY.turnRight(motorSpeedY);
-        }
-        else if (motorSpeedY < 0)
-        {
-            if (abs(motorSpeedY) < MIN_MOTOR_SPEED)
-            {
-                motorSpeedY = -MIN_MOTOR_SPEED;
-            }
-            motorY.turnLeft(abs(motorSpeedY));
-        }
+        // Value is too high, move down (or whichever direction is negative)
+        motorY.turnLeft(120);
+    }
+    else if (valueY < -threshold)
+    {
+        // Value is too low, move up (or whichever direction is positive)
+        motorY.turnRight(120);
     }
     else
     {
+        // Value is within the acceptable range, stop the motor.
         motorY.stop();
     }
+}
+
+void ControlSystem::stop()
+{
+    motorX.stop();
+    motorY.stop();
 }
