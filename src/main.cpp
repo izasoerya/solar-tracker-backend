@@ -44,7 +44,7 @@ void handleControl();
 void handleInput();
 
 // === Tasks ===
-Task serveUI(1000, TASK_FOREVER, &handleUI);			  // UI updates every 1 second
+Task serveUI(500, TASK_FOREVER, &handleUI);				  // UI updates every 1 second
 Task updateSensors(8, TASK_FOREVER, &handleSensorUpdate); // Sensor updates every 10ms
 Task controlTask(20, TASK_FOREVER, &handleControl);		  // Control every 20ms
 Task inputTask(5, TASK_FOREVER, &handleInput);			  // Input reading every 5ms
@@ -68,7 +68,7 @@ void handleUI()
 		ui.showManual(
 			sunTop, sunBot, sunLeft, sunRight,
 			xVal, yVal,
-			angleX * 1.268 + 0.547, angleY * 1.326 + 0.233,
+			(angleX * 1.268 + 0.547) * 1.06 - 1.12, (angleY * 1.326 + 0.233) * 0.98 + 0.27,
 			selection, inEditMode);
 	}
 }
@@ -82,8 +82,8 @@ void handleSensorUpdate()
 	ModelIMU imuData = mpu.getModelIMU();
 	imu.update(imuData);
 
-	angleX = imu.getRoll() + 1;
-	angleY = imu.getPitch() - 0.3;
+	angleX = imu.getRoll();
+	angleY = imu.getPitch();
 	sunTop = lp[0].reading(ldr.getRawValue(0));
 	sunLeft = lp[1].reading(ldr.getRawValue(1));
 	sunBot = lp[2].reading(ldr.getRawValue(2));
@@ -99,12 +99,12 @@ void handleControl()
 		float diffY = sunLeft - sunRight;
 
 		// 2. Call the automatic controller with the calculated differences.
-		control.runAutomatic(diffX, diffY);
+		control.runThreshold(diffX, diffY, 20);
 	}
 	else if (appState == AppState::MANUAL)
 	{
-		float raw_target_roll = (xVal - 0.547) / 1.268;
-		float raw_target_pitch = (yVal - 0.233) / 1.326;
+		float raw_target_roll = (((xVal - 0.547) / 1.268) + 1.12) / 1.06;
+		float raw_target_pitch = (((yVal - 0.233) / 1.326) - 0.27) / 0.98;
 		control.runManual(raw_target_roll, raw_target_pitch, imu.getRoll(), imu.getPitch());
 	}
 }
@@ -161,6 +161,7 @@ void handleInput()
 void setup()
 {
 	Wire.begin();
+	// Wire.setTimeout(100000);
 
 	ui.init();
 	input.init();
