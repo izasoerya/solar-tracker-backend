@@ -3,6 +3,9 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#define SDA_PIN A4
+#define SCL_PIN A5
+
 struct ModelIMU
 {
     float xa;
@@ -44,11 +47,17 @@ public:
         Wire.write(MPU_ACCEL_XOUT_H);
         if (Wire.endTransmission(false) != 0)
         {
+            // if (!i2cRecover())
+            // {
+            //     return; // recovery failed, let WDT handle it
+            // }
             return;
         }
 
-        if (Wire.requestFrom(MPU_ADDR, byteSize) != byteSize)
+        uint8_t count = Wire.requestFrom(MPU_ADDR, byteSize, (bool)1);
+        if (count != byteSize)
         {
+            // i2cRecover(); // try to free bus
             return;
         }
 
@@ -96,5 +105,178 @@ public:
         Wire.write(0x1A);         // The CONFIG register (0x1A)
         Wire.write(level & 0x07); // Write the level (0-6), masking to ensure it's 3 bits
         Wire.endTransmission(true);
+    }
+
+    bool i2cRecover()
+    {
+        pinMode(SCL_PIN, OUTPUT);
+        pinMode(SDA_PIN, INPUT_PULLUP);
+
+        // Toggle clock up to 9 times to free SDA
+        for (uint8_t i = 0; i < 9; i++)
+        {
+            if (digitalRead(SDA_PIN) == HIGH)
+            {
+                break; // SDA released → bus is free
+            }
+            digitalWrite(SCL_PIN, LOW);
+            delayMicroseconds(5);
+            digitalWrite(SCL_PIN, HIGH);
+            delayMicroseconds(5);
+        }
+
+        // Generate STOP condition
+        pinMode(SDA_PIN, OUTPUT);
+        digitalWrite(SDA_PIN, LOW);
+        delayMicroseconds(5);
+        digitalWrite(SCL_PIN, HIGH);
+        delayMicroseconds(5);
+        digitalWrite(SDA_PIN, HIGH);
+        delayMicroseconds(5);
+
+        // Reinit I2C
+        Wire.end();
+        Wire.begin();
+        Wire.setWireTimeout(100000, true); // 25ms timeout, auto clear bus
+
+        // Check if SDA is released
+        return (digitalRead(SDA_PIN) == HIGH);
+    }
+};
+
+#pragma once
+
+#include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+
+#define SDA_PIN A4
+#define SCL_PIN A5
+
+// We can reuse the same data structure
+struct ModelIMU
+{
+    float xa;
+    float ya;
+    float za;
+    float xg;
+    float yg;
+    float zg;
+    float Accelroll;
+    float Accelpitch;
+    float Accelyaw;
+};
+
+class SensorBNO
+{
+private:
+    // Adafruit BNO055 library object. The -1 indicates a software I2C reset pin is not used.
+    Adafruit_BNO055 bno = Adafruit_BNO055(-1, BNO055_ADDRESS_A);
+    ModelIMU imuData;
+
+public:
+    SensorBNO() {}
+    ~SensorBNO() {}
+
+    void begin()
+    {
+        Wire.begin();
+        if (!bno.begin())
+        {
+            // NDOF is the 9-DOF fusion mode that provides absolute orientation.
+            Serial.println("Oops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+            // You might want to halt here in a real application
+        }
+        delay(100); // Allow sensor to stabilize
+    }
+
+    void update()
+    {
+        // 1. Get the fused orientation (Euler angles) from the BNO055 itself.
+        //    This is the main advantage: the sensor does the filtering for you.
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        imuData.Accelroll = euler.x();
+        imuData.Accelpitch = euler.y();
+        imuData.Accelyaw = euler.z();
+
+        // 2. Get the raw accelerometer data (in m/s^2)
+        imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+        imuData.xa = accel.x();
+        imuData.ya = accel.y();
+        imuData.za = accel.z();
+
+        // 3. Get the raw gyroscope data (in rad/s)
+        imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+        imuData.xg = gyro.x();
+        imuData.yg = gyro.y();
+        imuData.zg = gyro.z();
+    }
+
+    // --- Standard Getter Methods ---
+    float getAccelX() const { return imuData.xa; }
+    float getAccelY() const { return imuData.ya; }
+    float getAccelZ() const { return imuData.za; }
+
+    // NOTE: These now return the FUSED angle directly from the BNO055, not a raw calculation.
+    float getAccelRoll() const { return imuData.Accelroll; }
+    float getAccelPitch() const { return imuData.Accelpitch; }
+
+    ModelIMU getModelIMU() const { return imuData; }
+
+    // --- Configuration Methods (Interface Compatibility) ---
+    // NOTE: For the BNO055, these settings are typically not changed at runtime.
+    // They are included for drop-in compatibility with the SensorMPU class interface.
+    void setAccelSensitivity(uint8_t level)
+    {
+        // BNO055 sensitivity is not changed at runtime via a simple level.
+        // It is set to +/- 4G in NDOF mode by the Adafruit library.
+        // This function is a placeholder for interface compatibility.
+    }
+    void setGyroSensitivity(uint8_t level)
+    {
+        // BNO055 gyroscope range is also not changed this way at runtime.
+        // It is set to +/- 2000 dps.
+        // This function is a placeholder.
+    }
+    void setFilterBandwidth(uint8_t level)
+    {
+        // BNO055's internal digital filter bandwidth is set via a different register
+        // and is not exposed as a simple level in the Adafruit library.
+        // This function is a placeholder.
+    }
+
+    // --- NEW METHOD: Unique and important for the BNO055 ---
+    // Gets the calibration status of the sensor components.
+    // A fully calibrated sensor will return 3 for each component.
+    void getCalibrationStatus(uint8_t &sys, uint8_t &gyro, uint8_t &accel, uint8_t &mag)
+    {
+        bno.getCalibration(&sys, &gyro, &accel, &mag);
+    }
+
+    // --- I2C Recovery Method (for compatibility and robustness) ---
+    bool i2cRecover()
+    {
+        pinMode(SCL_PIN, OUTPUT);
+        pinMode(SDA_PIN, INPUT_PULLUP);
+        for (uint8_t i = 0; i < 9; i++)
+        {
+            if (digitalRead(SDA_PIN) == HIGH)
+                break;
+            digitalWrite(SCL_PIN, LOW);
+            delayMicroseconds(5);
+            digitalWrite(SCL_PIN, HIGH);
+            delayMicroseconds(5);
+        }
+        pinMode(SDA_PIN, OUTPUT);
+        digitalWrite(SDA_PIN, LOW);
+        delayMicroseconds(5);
+        digitalWrite(SCL_PIN, HIGH);
+        delayMicroseconds(5);
+        digitalWrite(SDA_PIN, HIGH);
+        delayMicroseconds(5);
+        Wire.end();
+        Wire.begin();
+        return (digitalRead(SDA_PIN) == HIGH);
     }
 };
