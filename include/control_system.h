@@ -164,7 +164,7 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
 
     const float THRESHOLD_DEGREES = 8.0;
     const float DEAD_BAND = 12.0;
-    const float DT = 0.02f; // 20 ms task period
+    const float DT = 0.008f; // 20 ms task period
 
     // Errors
     float errorX = centerVectorX;

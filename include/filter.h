@@ -10,7 +10,7 @@ private:
     bool _hasInitialValue = false;
 
 public:
-    LowPassFilter() : _alpha(0.3), _filteredValue(0.0) {}
+    LowPassFilter() : _alpha(0.1), _filteredValue(0.0) {}
     ~LowPassFilter() {}
 
     float reading(float newReading)
