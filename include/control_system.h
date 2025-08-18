@@ -21,9 +21,8 @@ class ControlSystem
 {
 private:
     const float Kp_X = 25.0; // Proportional gain for X-axis motor
-    const float Kp_AX = 5.0; // Proportional gain for X-axis motor
     const float Kp_Y = 25.0; // Proportional gain for Y-axis motor
-    const float Kp_AY = 5.0; // Proportional gain for Y-axis motor
+
     Motor &motorX = driverX;
     Motor &motorY = driverY;
 
@@ -43,6 +42,7 @@ public:
     void runManual(float axisX, float axisY, float roll, float pitch);
     void runAutomatic(float centerVectorX, float centerVectorY);
     void runThreshold(float valueX, float valueY, float threshold);
+    void runRuleBased(int top, int bottom, int left, int right);
     void mockX();
     void mockY();
     void mockXY(bool dir);
@@ -156,10 +156,35 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
     static AxisState stateX = SEEKING;
     static AxisState stateY = SEEKING;
 
-    const float THRESHOLD_DEGREES = 15.0; // Move until within this threshold, then apply deadband
+    // Gains
+    const float Kp_AX = 5.0; // Proportional gain for X-axis motor
+    const float Kd_AX = 1.0; // Derivative gain for X-axis motor
+    const float Kp_AY = 2.5; // Proportional gain for Y-axis motor
+    const float Kd_AY = 0.5; // Derivative gain for Y-axis motor
 
+    const float THRESHOLD_DEGREES = 8.0;
+    const float DEAD_BAND = 12.0;
+    const float DT = 0.02f; // 20 ms task period
+
+    // Errors
     float errorX = centerVectorX;
     float errorY = centerVectorY;
+
+    // Store previous errors for derivative term
+    static float prevErrorX = 0;
+    static float prevErrorY = 0;
+
+    // Derivative terms
+    float dErrorX = (errorX - prevErrorX) / DT;
+    float dErrorY = (errorY - prevErrorY) / DT;
+
+    // Control efforts (PD)
+    int controlX = static_cast<int>(Kp_AX * errorX + Kd_AX * dErrorX);
+    int controlY = static_cast<int>(Kp_AY * errorY + Kd_AY * dErrorY);
+
+    // Clamp motor commands
+    controlX = constrain(controlX, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
+    controlY = constrain(controlY, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
 
     // --- X Axis ---
     switch (stateX)
@@ -172,32 +197,26 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
         }
         else
         {
-            int motorSpeedX = static_cast<int>(Kp_X * errorX);
-            motorSpeedX = constrain(motorSpeedX, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
-
-            if (motorSpeedX > 0)
+            if (controlX > 0)
             {
-                if (motorSpeedX < MIN_MOTOR_SPEED)
-                    motorSpeedX = MIN_MOTOR_SPEED;
-                motorX.turnRight(motorSpeedX);
+                if (controlX < MIN_MOTOR_SPEED)
+                    controlX = MIN_MOTOR_SPEED;
+                motorX.turnRight(controlX);
             }
-            else if (motorSpeedX < 0)
+            else if (controlX < 0)
             {
-                if (abs(motorSpeedX) < MIN_MOTOR_SPEED)
-                    motorSpeedX = -MIN_MOTOR_SPEED;
-                motorX.turnLeft(abs(motorSpeedX));
+                if (abs(controlX) < MIN_MOTOR_SPEED)
+                    controlX = -MIN_MOTOR_SPEED;
+                motorX.turnLeft(abs(controlX));
             }
         }
         break;
+
     case HOLDING:
-        if (abs(errorX) > 8)
-        {
+        if (abs(errorX) > DEAD_BAND)
             stateX = SEEKING;
-        }
         else
-        {
             motorX.stop();
-        }
         break;
     }
 
@@ -212,34 +231,32 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
         }
         else
         {
-            int motorSpeedY = static_cast<int>(Kp_AY * errorY);
-            motorSpeedY = constrain(motorSpeedY, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
-
-            if (motorSpeedY > 0)
+            if (controlY > 0)
             {
-                if (motorSpeedY < MIN_MOTOR_SPEED)
-                    motorSpeedY = MIN_MOTOR_SPEED;
-                motorY.turnRight(motorSpeedY);
+                if (controlY < MIN_MOTOR_SPEED)
+                    controlY = MIN_MOTOR_SPEED;
+                motorY.turnRight(controlY);
             }
-            else if (motorSpeedY < 0)
+            else if (controlY < 0)
             {
-                if (abs(motorSpeedY) < MIN_MOTOR_SPEED)
-                    motorSpeedY = -MIN_MOTOR_SPEED;
-                motorY.turnLeft(abs(motorSpeedY));
+                if (abs(controlY) < MIN_MOTOR_SPEED)
+                    controlY = -MIN_MOTOR_SPEED;
+                motorY.turnLeft(abs(controlY));
             }
         }
         break;
+
     case HOLDING:
-        if (abs(errorY) > 8)
-        {
+        if (abs(errorY) > DEAD_BAND)
             stateY = SEEKING;
-        }
         else
-        {
             motorY.stop();
-        }
         break;
     }
+
+    // Update previous errors
+    prevErrorX = errorX;
+    prevErrorY = errorY;
 }
 
 void ControlSystem::runThreshold(float valueX, float valueY, float threshold)
@@ -247,34 +264,28 @@ void ControlSystem::runThreshold(float valueX, float valueY, float threshold)
     // --- X Axis Control ---
     if (valueX > threshold)
     {
-        // Value is too high, move left (or whichever direction is negative)
         motorX.turnLeft(120);
     }
     else if (valueX < -threshold)
     {
-        // Value is too low, move right (or whichever direction is positive)
         motorX.turnRight(120);
     }
     else
     {
-        // Value is within the acceptable range, stop the motor.
         motorX.stop();
     }
 
     // --- Y Axis Control ---
     if (valueY > threshold)
     {
-        // Value is too high, move down (or whichever direction is negative)
         motorY.turnLeft(120);
     }
     else if (valueY < -threshold)
     {
-        // Value is too low, move up (or whichever direction is positive)
         motorY.turnRight(120);
     }
     else
     {
-        // Value is within the acceptable range, stop the motor.
         motorY.stop();
     }
 }
@@ -283,4 +294,109 @@ void ControlSystem::stop()
 {
     motorX.stop();
     motorY.stop();
+}
+
+void ControlSystem::runRuleBased(int top, int bottom, int left, int right)
+{
+    const int THRESHOLD = 100; // contoh, sesuaikan dengan kondisi cahaya
+    const int SPEED = 80;      // kecepatan default gerak
+
+    // 1. Tentukan status ON/OFF untuk tiap LDR
+    bool topOn = (top > THRESHOLD);
+    bool bottomOn = (bottom > THRESHOLD);
+    bool leftOn = (left > THRESHOLD);
+    bool rightOn = (right > THRESHOLD);
+
+    int activeCount = topOn + bottomOn + leftOn + rightOn;
+
+    // 2. Rule berdasarkan jumlah aktif
+    if (activeCount == 1)
+    {
+        // === CASE 1 LDR ===
+        if (topOn)
+        {
+            motorY.turnRight(SPEED); // ke arah atas
+            motorX.stop();
+        }
+        else if (bottomOn)
+        {
+            motorY.turnLeft(SPEED); // ke arah bawah
+            motorX.stop();
+        }
+        else if (leftOn)
+        {
+            motorX.turnLeft(SPEED); // ke arah kiri
+            motorY.stop();
+        }
+        else if (rightOn)
+        {
+            motorX.turnRight(SPEED); // ke arah kanan
+            motorY.stop();
+        }
+    }
+    else if (activeCount == 2)
+    {
+        // === CASE 2 LDR ===
+        // horizontal pair
+        if (leftOn && rightOn)
+        {
+            // berarti posisi benar, stop vertical, fokus horizontal
+            motorX.stop();
+            // bisa kasih fine adjust kalau kiri lebih terang
+        }
+        // vertical pair
+        else if (topOn && bottomOn)
+        {
+            motorY.stop();
+        }
+        // diagonal pair → treat as diagonal move
+        else if (topOn && leftOn)
+        {
+            motorX.turnLeft(SPEED);
+            motorY.turnRight(SPEED);
+        }
+        else if (topOn && rightOn)
+        {
+            motorX.turnRight(SPEED);
+            motorY.turnRight(SPEED);
+        }
+        else if (bottomOn && leftOn)
+        {
+            motorX.turnLeft(SPEED);
+            motorY.turnLeft(SPEED);
+        }
+        else if (bottomOn && rightOn)
+        {
+            motorX.turnRight(SPEED);
+            motorY.turnLeft(SPEED);
+        }
+    }
+    else if (activeCount == 3)
+    {
+        // === CASE 3 LDR ===
+        // Yang mati menunjukkan arah berlawanan
+        if (!topOn)
+        {
+            // top gelap → berarti harus ke bawah
+            motorY.turnLeft(SPEED);
+        }
+        else if (!bottomOn)
+        {
+            motorY.turnRight(SPEED);
+        }
+        else if (!leftOn)
+        {
+            motorX.turnRight(SPEED);
+        }
+        else if (!rightOn)
+        {
+            motorX.turnLeft(SPEED);
+        }
+    }
+    else
+    {
+        // === CASE 0 or 4 ===
+        motorX.stop();
+        motorY.stop();
+    }
 }
