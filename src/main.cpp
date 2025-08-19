@@ -6,8 +6,10 @@
 #include "user_input.h"
 #include "sensor_mpu.h"
 #include "sensor_ldr.h"
+#include "sensor_rtc.h"
 #include "madgwick_imu.h"
 #include "control_system.h"
+#include "sun_trajectory.h"
 
 #define STEP 1
 #define VAL_MIN -60
@@ -21,6 +23,8 @@ SensorLDR ldr(ldrPins);
 ControlSystem control;
 MadgwickIMU madgwick;
 LowPassFilter lp[4];
+SunTracker sun;
+SensorRTC rtc;
 
 AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
