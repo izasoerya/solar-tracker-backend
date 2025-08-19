@@ -29,6 +29,33 @@ private:
     bool active = false;
     ModelIMU imuData;
 
+    bool safeReadIMU(uint8_t addr, uint8_t reg, uint8_t *data, uint8_t len, uint16_t timeoutMs)
+    {
+        uint32_t start = millis();
+
+        Wire.beginTransmission(addr);
+        Wire.write(reg);
+        if (Wire.endTransmission(false) != 0)
+        {
+            return false; // write failed
+        }
+
+        Wire.requestFrom(addr, len, (uint8_t)true);
+        uint8_t i = 0;
+        while (i < len)
+        {
+            if (Wire.available())
+            {
+                data[i++] = Wire.read();
+            }
+            if (millis() - start > timeoutMs)
+            {
+                return false; // timeout only applies here
+            }
+        }
+        return true;
+    }
+
 public:
     SensorMPU() {}
     ~SensorMPU() {}
@@ -45,27 +72,17 @@ public:
 
     void update()
     {
-        Wire.beginTransmission(MPU_ADDR);
-        Wire.write(MPU_ACCEL_XOUT_H);
-        if (Wire.endTransmission(false) != 0)
+        uint8_t buffer[6];
+
+        if (!safeReadIMU(MPU_ADDR, MPU_ACCEL_XOUT_H, buffer, byteSize, 20)) // 20ms timeout only for IMU
         {
-            // if (!i2cRecover())
-            // {
-            //     return; // recovery failed, let WDT handle it
-            // }
+            // i2cRecover();
             return;
         }
 
-        uint8_t count = Wire.requestFrom(MPU_ADDR, byteSize, (bool)1);
-        if (count != byteSize)
-        {
-            // i2cRecover(); // try to free bus
-            return;
-        }
-
-        int16_t rawXa = (Wire.read() << 8) | Wire.read();
-        int16_t rawYa = (Wire.read() << 8) | Wire.read();
-        int16_t rawZa = (Wire.read() << 8) | Wire.read();
+        int16_t rawXa = (buffer[0] << 8) | buffer[1];
+        int16_t rawYa = (buffer[2] << 8) | buffer[3];
+        int16_t rawZa = (buffer[4] << 8) | buffer[5];
 
         imuData.xa = rawXa;
         imuData.ya = rawYa;
