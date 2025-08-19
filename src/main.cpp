@@ -97,13 +97,63 @@ void handleSensorUpdate()
 	}
 }
 
+// === Control Actuator Task ===
 void handleControl()
 {
+	static unsigned long cloudyStartTime = 0;
+	static bool inCloudyFallback = false;
+	static byte seeker1Stable = 0;
+	static byte seeker2Stable = 0;
+
 	if (appState == AppState::AUTOMATIC)
 	{
+		// -- Cloudy sky -- //
+		bool isCloudy = (sunTop < 50 && sunBot < 50 && sunLeft < 50 && sunRight < 50);
+		if (isCloudy)
+		{
+			if (cloudyStartTime == 0)
+			{
+				cloudyStartTime = millis();
+				seeker1Stable = 0;
+				seeker2Stable = 0;
+			}
+			if ((millis() - cloudyStartTime) >= 30000)
+				inCloudyFallback = true;
+			return; // Do not run normal control while in fallback
+		}
+		else
+		{
+			cloudyStartTime = 0;
+			inCloudyFallback = false;
+			seeker1Stable = 0;
+			seeker2Stable = 0;
+		}
+
+		if (inCloudyFallback)
+		{
+			byte seeker1 = ldr.getRawValue(5);
+			byte seeker2 = ldr.getRawValue(6);
+
+			if (seeker1 > 120 && seeker2 > 120)
+			{
+				seeker1Stable = seeker1;
+				seeker2Stable = seeker2;
+				bool approved = control.runFallBackStrategy(seeker1Stable, seeker2Stable, sunTop, sunBot);
+				if (approved)
+				{
+					inCloudyFallback = false;
+					cloudyStartTime = 0;
+					seeker1Stable = 0;
+					seeker2Stable = 0;
+				}
+			}
+			return; // Do not run normal control while in fallback
+		}
+
+		// -- Normal sky -- //
 		float diffX = sunTop - sunLeft;
 		float diffY = sunBot - sunRight;
-		// control.runRuleBased(sunTop, sunBot, sunLeft, sunRight);
+		control.runAutomatic(diffX, diffY);
 	}
 	else if (appState == AppState::MANUAL)
 	{

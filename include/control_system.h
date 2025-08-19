@@ -43,6 +43,7 @@ public:
     void runAutomatic(float centerVectorX, float centerVectorY);
     void runThreshold(float valueX, float valueY, float threshold);
     void runRuleBased(int top, int bottom, int left, int right);
+    bool runFallBackStrategy(byte seeker1, byte seeker2, byte ref1, byte ref2);
     void mockX();
     void mockY();
     void mockXY(bool dir);
@@ -399,4 +400,29 @@ void ControlSystem::runRuleBased(int top, int bottom, int left, int right)
         motorX.stop();
         motorY.stop();
     }
+}
+
+bool ControlSystem::runFallBackStrategy(byte seeker1, byte seeker2, byte ref1, byte ref2)
+{
+    byte target = (seeker1 > seeker2) ? seeker1 : seeker2;
+
+    bool ref1Close = abs((int)ref1 - (int)target) <= 30;
+    bool ref2Close = abs((int)ref2 - (int)target) <= 30;
+
+    if (ref1Close && ref2Close)
+    {
+        motorX.stop();
+        return true;
+    }
+
+    // Move toward the higher seeker
+    if (seeker1 > seeker2)
+    {
+        motorX.turnRight(MAX_MOTOR_SPEED / 1.5);
+    }
+    else if (seeker2 > seeker1)
+    {
+        motorX.turnRight(MAX_MOTOR_SPEED);
+    }
+    return false;
 }
