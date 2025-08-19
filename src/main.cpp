@@ -113,7 +113,9 @@ void handleControl()
 		bool isCloudy = (sunTop < 50 && sunBot < 50 && sunLeft < 50 && sunRight < 50);
 		if (isCloudy)
 		{
-			control.cloudyStrategy(millis(), refSunLeft, refSunRight, sunLeft, sunRight);
+			control.cloudyStrategy(
+				millis(), ldr.getRawValue(4), ldr.getRawValue(5),
+				refSunLeft, refSunRight, sunLeft, sunRight);
 		}
 		else
 		{
