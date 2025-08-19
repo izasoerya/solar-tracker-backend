@@ -157,33 +157,16 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
     static AxisState stateX = SEEKING;
     static AxisState stateY = SEEKING;
 
-    // Gains
     const float Kp_AX = 5.0; // Proportional gain for X-axis motor
-    const float Kd_AX = 1.0; // Derivative gain for X-axis motor
     const float Kp_AY = 2.5; // Proportional gain for Y-axis motor
-    const float Kd_AY = 0.5; // Derivative gain for Y-axis motor
-
     const float THRESHOLD_DEGREES = 8.0;
     const float DEAD_BAND = 12.0;
-    const float DT = 0.008f; // 20 ms task period
 
-    // Errors
     float errorX = centerVectorX;
     float errorY = centerVectorY;
+    int controlX = static_cast<int>(Kp_AX * errorX);
+    int controlY = static_cast<int>(Kp_AY * errorY);
 
-    // Store previous errors for derivative term
-    static float prevErrorX = 0;
-    static float prevErrorY = 0;
-
-    // Derivative terms
-    float dErrorX = (errorX - prevErrorX) / DT;
-    float dErrorY = (errorY - prevErrorY) / DT;
-
-    // Control efforts (PD)
-    int controlX = static_cast<int>(Kp_AX * errorX + Kd_AX * dErrorX);
-    int controlY = static_cast<int>(Kp_AY * errorY + Kd_AY * dErrorY);
-
-    // Clamp motor commands
     controlX = constrain(controlX, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
     controlY = constrain(controlY, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
 
@@ -254,10 +237,6 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
             motorY.stop();
         break;
     }
-
-    // Update previous errors
-    prevErrorX = errorX;
-    prevErrorY = errorY;
 }
 
 void ControlSystem::runThreshold(float valueX, float valueY, float threshold)
