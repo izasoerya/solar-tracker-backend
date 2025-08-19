@@ -44,7 +44,7 @@ public:
     void runThreshold(float valueX, float valueY, float threshold);
     void runRuleBased(int top, int bottom, int left, int right);
     bool runFallBackStrategy(byte seeker1, byte seeker2, byte refLeft, byte refRight);
-    void cloudyStrategy(uint32_t nowMilis, byte refLeft, byte refRight, byte currentLeft, byte currentRight);
+    void cloudyStrategy(uint32_t nowMilis, byte seeker1, byte seeker2, byte refLeft, byte refRight, byte currentLeft, byte currentRight);
     void mockX();
     void mockY();
     void mockXY(bool dir);
@@ -240,7 +240,7 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
     }
 }
 
-void ControlSystem::cloudyStrategy(uint32_t nowMilis, byte refLeft, byte refRight, byte currentLeft, byte currentRight)
+void ControlSystem::cloudyStrategy(uint32_t nowMilis, byte seeker1, byte seeker2, byte refLeft, byte refRight, byte currentLeft, byte currentRight)
 {
     static uint32_t cloudyStartTime = 0;
     static bool inCloudyFallback = false;
@@ -255,7 +255,7 @@ void ControlSystem::cloudyStrategy(uint32_t nowMilis, byte refLeft, byte refRigh
 
     if (inCloudyFallback)
     {
-        if (refLeft > 120 || refRight > 120)
+        if (seeker1 > 120 || seeker2 > 120)
         {
             bool approved = runFallBackStrategy(currentLeft, currentRight, refLeft, refRight);
             if (approved)
