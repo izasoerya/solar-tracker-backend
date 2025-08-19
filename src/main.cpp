@@ -38,6 +38,7 @@ byte sunTop = 0;
 byte sunBot = 0;
 byte sunLeft = 0;
 byte sunRight = 0;
+timeObject now;
 
 Scheduler scheduler;
 
@@ -80,10 +81,12 @@ void handleUI()
 // === Sensor Update Task ===
 void handleSensorUpdate()
 {
+	now = rtc.getData();
 	if (appState == AppState::MANUAL)
 	{
 		mpu.update();
 		ldr.update();
+		rtc.update();
 
 		ModelIMU imuData = mpu.getModelIMU();
 		madgwick.update(imuData);
@@ -228,6 +231,7 @@ void setup()
 	mpu.setAccelSensitivity(0);
 	mpu.setFilterBandwidth(4);
 	ldr.begin();
+	rtc.begin();
 
 	scheduler.init();
 	scheduler.addTask(serveUI);
