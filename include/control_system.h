@@ -43,7 +43,8 @@ public:
     void runAutomatic(float centerVectorX, float centerVectorY);
     void runThreshold(float valueX, float valueY, float threshold);
     void runRuleBased(int top, int bottom, int left, int right);
-    bool runFallBackStrategy(byte seeker1, byte seeker2, byte ref1, byte ref2);
+    bool runFallBackStrategy(byte seeker1, byte seeker2, byte refLeft, byte refRight);
+    void cloudyStrategy(uint32_t nowMilis, byte refLeft, byte refRight, byte currentLeft, byte currentRight);
     void mockX();
     void mockY();
     void mockXY(bool dir);
@@ -260,6 +261,37 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
     prevErrorY = errorY;
 }
 
+void ControlSystem::cloudyStrategy(uint32_t nowMilis, byte refLeft, byte refRight, byte currentLeft, byte currentRight)
+{
+    static uint32_t cloudyStartTime = 0;
+    static bool inCloudyFallback = false;
+
+    if (cloudyStartTime == 0)
+    {
+        cloudyStartTime = nowMilis;
+    }
+    if ((nowMilis - cloudyStartTime) >= 30000)
+        inCloudyFallback = true;
+    stop(); // Stop the motor
+
+    if (inCloudyFallback)
+    {
+        if (refLeft > 120 || refRight > 120)
+        {
+            bool approved = runFallBackStrategy(currentLeft, currentRight, refLeft, refRight);
+            if (approved)
+            {
+                inCloudyFallback = false;
+                cloudyStartTime = 0;
+            }
+        }
+        else
+        {
+            stop(); // Stop the motor
+        }
+    }
+}
+
 void ControlSystem::runThreshold(float valueX, float valueY, float threshold)
 {
     // --- X Axis Control ---
@@ -402,27 +434,32 @@ void ControlSystem::runRuleBased(int top, int bottom, int left, int right)
     }
 }
 
-bool ControlSystem::runFallBackStrategy(byte seeker1, byte seeker2, byte ref1, byte ref2)
+bool ControlSystem::runFallBackStrategy(byte currentLeft, byte currentRight, byte refLeft, byte refRight)
 {
-    byte target = (seeker1 > seeker2) ? seeker1 : seeker2;
+    const int THRESHOLD = 30;
 
-    bool ref1Close = abs((int)ref1 - (int)target) <= 30;
-    bool ref2Close = abs((int)ref2 - (int)target) <= 30;
+    bool current1Close = abs((int)currentLeft - (int)refLeft) <= THRESHOLD;
+    bool current2Close = abs((int)currentRight - (int)refRight) <= THRESHOLD;
 
-    if (ref1Close && ref2Close)
+    if (current1Close && current2Close)
     {
         motorX.stop();
         return true;
     }
 
-    // Move toward the higher seeker
-    if (seeker1 > seeker2)
+    if (!current1Close)
     {
-        motorX.turnRight(MAX_MOTOR_SPEED / 1.5);
+        if (currentLeft > refLeft)
+            motorX.turnRight(MAX_MOTOR_SPEED);
+        else
+            motorX.turnLeft(MAX_MOTOR_SPEED);
     }
-    else if (seeker2 > seeker1)
+    else if (!current2Close)
     {
-        motorX.turnRight(MAX_MOTOR_SPEED);
+        if (currentRight > refRight)
+            motorX.turnRight(MAX_MOTOR_SPEED / 1.5);
+        else
+            motorX.turnLeft(MAX_MOTOR_SPEED / 1.5);
     }
     return false;
 }
