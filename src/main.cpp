@@ -61,10 +61,9 @@ void handleUI()
 		// 	(sunX + sunY) / 2,
 		// 	angleX, angleY);
 
-		ui.showDebugLDR(sunTop,
-						sunBot,
-						sunLeft,
-						sunRight);
+		ui.showDebugLDR(sunTop, sunBot,
+						sunLeft, sunRight,
+						nows);
 	}
 	else
 	{

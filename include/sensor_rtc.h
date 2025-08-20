@@ -5,9 +5,12 @@
 
 struct timeObject
 {
+    byte second;
+    byte minute;
     byte hour;
     byte day;
     byte month;
+    byte year;
 };
 
 class SensorRTC
@@ -27,9 +30,12 @@ public:
 
     timeObject getData()
     {
-        tb.day = rtc.minute();
+        tb.second = rtc.second();
+        tb.minute = rtc.minute();
         tb.hour = rtc.hour();
-        tb.month = rtc.second();
+        tb.day = rtc.day();
+        tb.month = rtc.month();
+        tb.year = rtc.year();
         return tb;
     }
 

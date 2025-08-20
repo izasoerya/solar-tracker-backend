@@ -1,6 +1,7 @@
 #pragma once
 
 #include <LCD_I2C.h>
+#include "sensor_rtc.h"
 
 enum class AppState
 {
@@ -80,19 +81,29 @@ public:
         }
     }
 
-    void showDebugLDR(byte top, byte down, byte left, byte right)
+    void showDebugLDR(byte top, byte down, byte left, byte right, timeObject now)
     {
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("LDR Debug:");
+        lcd.print(now.hour);
+        lcd.print(":");
+        lcd.print(now.minute);
+        lcd.print(":");
+        lcd.print(now.second);
+        lcd.print("|");
+        lcd.print(now.day);
+        lcd.print("/");
+        lcd.print(now.month);
+        lcd.print("/");
+        lcd.print(now.year);
 
-        lcd.setCursor(0, 1);
+        lcd.setCursor(0, 2);
         lcd.print("T:");
         lcd.print(top);
         lcd.print(" D:");
         lcd.print(down);
 
-        lcd.setCursor(0, 2);
+        lcd.setCursor(0, 3);
         lcd.print("L:");
         lcd.print(left);
         lcd.print(" R:");
