@@ -37,7 +37,6 @@ byte sunTop = 0;
 byte sunBot = 0;
 byte sunLeft = 0;
 byte sunRight = 0;
-timeObject now;
 
 Scheduler scheduler;
 
@@ -87,11 +86,8 @@ void handleSensorUpdate()
 		mpu.update();
 		ldr.update();
 
-		ModelIMU imuData = mpu.getModelIMU();
-		madgwick.update(imuData);
-
-		angleX = madgwick.getRoll();
-		angleY = madgwick.getPitch();
+		angleX = lp[4].reading(mpu.getAccelRoll());
+		angleY = lp[5].reading(mpu.getAccelPitch());
 	}
 	else
 	{
