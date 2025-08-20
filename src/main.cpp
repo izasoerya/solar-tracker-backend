@@ -92,7 +92,6 @@ void handleSensorUpdate()
 	else
 	{
 		ldr.update();
-		timeObject data = rtc.getData();
 		sunTop = lp[0].reading(ldr.getRawValue(0));
 		sunLeft = lp[1].reading(ldr.getRawValue(1));
 		sunBot = lp[2].reading(ldr.getRawValue(2));
@@ -103,12 +102,12 @@ void handleSensorUpdate()
 // === Control Actuator Task ===
 void handleControl()
 {
-	static byte refSunLeft = 0;
-	static byte refSunRight = 0;
 
 	if (appState == AppState::AUTOMATIC)
 	{
 		// -- Cloudy sky -- //
+		// static byte refSunLeft = 0;
+		// static byte refSunRight = 0;
 		// bool isCloudy = (sunTop < 50 && sunBot < 50 && sunLeft < 50 && sunRight < 50);
 		// if (isCloudy)
 		// {
