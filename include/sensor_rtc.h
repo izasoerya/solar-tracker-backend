@@ -22,9 +22,16 @@ public:
         URTCLIB_WIRE.begin();
 
         // Comment this when done calibrating
-        rtc.set(0, 42, 16, 6, 2, 5, 15);
+        // rtc.set(0, 3, 21, 4, 20, 8, 25);
+    }
+
+    timeObject getData()
+    {
+        tb.day = rtc.minute();
+        tb.hour = rtc.hour();
+        tb.month = rtc.second();
+        return tb;
     }
 
     void update() { rtc.refresh(); }
-    timeObject getData() { return tb; }
 };

@@ -7,7 +7,6 @@
 #include "sensor_mpu.h"
 #include "sensor_ldr.h"
 #include "sensor_rtc.h"
-#include "madgwick_imu.h"
 #include "control_system.h"
 #include "sun_trajectory.h"
 
@@ -21,10 +20,10 @@ SensorFXOSFXAS mpu;
 byte ldrPins[6] = {A0, A1, A2, A3, A6, A7};
 SensorLDR ldr(ldrPins);
 ControlSystem control;
-MadgwickIMU madgwick;
-LowPassFilter lp[4];
+LowPassFilter lp[6];
 SunTracker sun;
 SensorRTC rtc;
+timeObject nows;
 
 AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
@@ -73,7 +72,7 @@ void handleUI()
 		ui.showManual(
 			sunTop, sunBot, sunLeft, sunRight,
 			xVal, yVal,
-			(angleX * 1.268 + 0.547) * 1.06 - 1.12, (angleY * 1.326 + 0.233) * 0.98 + 0.27,
+			(angleX), (angleY),
 			selection, inEditMode);
 	}
 }
@@ -81,12 +80,12 @@ void handleUI()
 // === Sensor Update Task ===
 void handleSensorUpdate()
 {
-	now = rtc.getData();
+	rtc.update();
+	nows = rtc.getData();
 	if (appState == AppState::MANUAL)
 	{
 		mpu.update();
 		ldr.update();
-		rtc.update();
 
 		ModelIMU imuData = mpu.getModelIMU();
 		madgwick.update(imuData);
@@ -97,6 +96,7 @@ void handleSensorUpdate()
 	else
 	{
 		ldr.update();
+		timeObject data = rtc.getData();
 		sunTop = lp[0].reading(ldr.getRawValue(0));
 		sunLeft = lp[1].reading(ldr.getRawValue(1));
 		sunBot = lp[2].reading(ldr.getRawValue(2));
@@ -113,18 +113,18 @@ void handleControl()
 	if (appState == AppState::AUTOMATIC)
 	{
 		// -- Cloudy sky -- //
-		bool isCloudy = (sunTop < 50 && sunBot < 50 && sunLeft < 50 && sunRight < 50);
-		if (isCloudy)
-		{
-			control.cloudyStrategy(
-				millis(), ldr.getRawValue(4), ldr.getRawValue(5),
-				refSunLeft, refSunRight, sunLeft, sunRight);
-		}
-		else
-		{
-			refSunLeft = sunLeft;
-			refSunRight = sunRight;
-		}
+		// bool isCloudy = (sunTop < 50 && sunBot < 50 && sunLeft < 50 && sunRight < 50);
+		// if (isCloudy)
+		// {
+		// 	control.cloudyStrategy(
+		// 		millis(), ldr.getRawValue(4), ldr.getRawValue(5),
+		// 		refSunLeft, refSunRight, sunLeft, sunRight);
+		// }
+		// else
+		// {
+		// 	refSunLeft = sunLeft;
+		// 	refSunRight = sunRight;
+		// }
 
 		// -- Normal sky -- //
 		float diffX = sunTop - sunLeft;
@@ -134,9 +134,9 @@ void handleControl()
 
 	else if (appState == AppState::MANUAL)
 	{
-		float raw_target_roll = (((xVal - 0.547) / 1.268) + 1.12) / 1.06;
-		float raw_target_pitch = (((yVal - 0.233) / 1.326) - 0.27) / 0.98;
-		control.runManual(raw_target_roll, raw_target_pitch, madgwick.getRoll(), madgwick.getPitch());
+		float raw_target_roll = (((xVal)));
+		float raw_target_pitch = (((yVal)));
+		control.runManual(raw_target_roll, raw_target_pitch, angleX, angleY);
 	}
 }
 

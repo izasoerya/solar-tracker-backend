@@ -20,8 +20,8 @@ AxisState stateY = SEEKING;
 class ControlSystem
 {
 private:
-    const float Kp_X = 25.0; // Proportional gain for X-axis motor
-    const float Kp_Y = 25.0; // Proportional gain for Y-axis motor
+    const float Kp_X = 5.0; // Proportional gain for X-axis motor
+    const float Kp_Y = 2.5; // Proportional gain for Y-axis motor
 
     Motor &motorX = driverX;
     Motor &motorY = driverY;
@@ -101,7 +101,7 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
         }
         break;
     case HOLDING:
-        if (abs(errorX) > DEAD_ZONE_DEGREES + 0.1)
+        if (abs(errorX) > DEAD_ZONE_DEGREES + 0.2)
         { // 0.1 is extra deadband margin (hysteresis)
             manualStateX = SEEKING;
         }
@@ -141,7 +141,7 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
         }
         break;
     case HOLDING:
-        if (abs(errorY) > DEAD_ZONE_DEGREES + 0.1)
+        if (abs(errorY) > DEAD_ZONE_DEGREES + 0.2)
         {
             manualStateY = SEEKING;
         }
