@@ -195,17 +195,14 @@ public:
 
     void update()
     {
-        if (!active)
-            return;
-
         sensors_event_t aevent, mevent, gevent;
         fxos.getEvent(&aevent, &mevent);
 
-        imuData.xa = aevent.acceleration.x;
-        imuData.ya = aevent.acceleration.y;
+        imuData.xa = -1 * aevent.acceleration.y;
+        imuData.ya = aevent.acceleration.x;
         imuData.za = aevent.acceleration.z;
-        imuData.xg = gevent.gyro.x;
-        imuData.yg = gevent.gyro.y;
+        imuData.xg = -1 * gevent.gyro.y;
+        imuData.yg = gevent.gyro.x;
         imuData.zg = gevent.gyro.z;
 
         imuData.Accelroll = atan2(imuData.ya, imuData.za) * 180.0 / PI;
