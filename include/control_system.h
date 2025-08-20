@@ -39,7 +39,7 @@ public:
     ControlSystem();
     ~ControlSystem();
 
-    void runManual(float axisX, float axisY, float roll, float pitch);
+    void runManual(float axisX, float axisY, float angleMain, float angleSecond);
     void runAutomatic(float centerVectorX, float centerVectorY);
     void runThreshold(float valueX, float valueY, float threshold);
     void runRuleBased(int top, int bottom, int left, int right);
@@ -55,10 +55,10 @@ ControlSystem::ControlSystem() {}
 
 ControlSystem::~ControlSystem() {}
 
-void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
+void ControlSystem::runManual(float axisX, float axisY, float angleMain, float angleSecond)
 {
-    float errorX = axisX - roll;
-    float errorY = axisY - pitch;
+    float errorX = axisX - angleMain;
+    float errorY = axisY - angleSecond;
 
     // Reset state if target changes
     if (axisX != lastTargetX)
@@ -102,7 +102,7 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
         break;
     case HOLDING:
         if (abs(errorX) > DEAD_ZONE_DEGREES + 0.2)
-        { // 0.1 is extra deadband margin (hysteresis)
+        {
             manualStateX = SEEKING;
         }
         else
@@ -153,20 +153,18 @@ void ControlSystem::runManual(float axisX, float axisY, float roll, float pitch)
     }
 }
 
-void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
+void ControlSystem::runAutomatic(float diffMain, float diffSecond)
 {
     static AxisState stateX = SEEKING;
     static AxisState stateY = SEEKING;
 
-    const float Kp_AX = 5.0; // Proportional gain for X-axis motor
-    const float Kp_AY = 2.5; // Proportional gain for Y-axis motor
+    const float Kp_AX = 15.0; // Proportional gain for X-axis motor
+    const float Kp_AY = 7.5;  // Proportional gain for Y-axis motor
     const float THRESHOLD_DEGREES = 8.0;
     const float DEAD_BAND = 12.0;
 
-    float errorX = centerVectorX;
-    float errorY = centerVectorY;
-    int controlX = static_cast<int>(Kp_AX * errorX);
-    int controlY = static_cast<int>(Kp_AY * errorY);
+    int controlX = static_cast<int>(Kp_AX * diffMain);
+    int controlY = static_cast<int>(Kp_AY * diffSecond);
 
     controlX = constrain(controlX, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
     controlY = constrain(controlY, -MAX_MOTOR_SPEED, MAX_MOTOR_SPEED);
@@ -175,7 +173,7 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
     switch (stateX)
     {
     case SEEKING:
-        if (abs(errorX) <= THRESHOLD_DEGREES)
+        if (abs(diffMain) <= THRESHOLD_DEGREES)
         {
             motorX.stop();
             stateX = HOLDING;
@@ -198,7 +196,7 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
         break;
 
     case HOLDING:
-        if (abs(errorX) > DEAD_BAND)
+        if (abs(diffMain) > DEAD_BAND)
             stateX = SEEKING;
         else
             motorX.stop();
@@ -209,7 +207,7 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
     switch (stateY)
     {
     case SEEKING:
-        if (abs(errorY) <= THRESHOLD_DEGREES)
+        if (abs(diffSecond) <= THRESHOLD_DEGREES)
         {
             motorY.stop();
             stateY = HOLDING;
@@ -232,7 +230,7 @@ void ControlSystem::runAutomatic(float centerVectorX, float centerVectorY)
         break;
 
     case HOLDING:
-        if (abs(errorY) > DEAD_BAND)
+        if (abs(diffSecond) > DEAD_BAND)
             stateY = SEEKING;
         else
             motorY.stop();

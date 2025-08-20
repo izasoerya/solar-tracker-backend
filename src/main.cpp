@@ -31,12 +31,12 @@ bool inEditMode = false;
 
 int8_t xVal = 0;
 int8_t yVal = 0;
-float angleX = 0;
-float angleY = 0;
-byte sunTop = 0;
-byte sunBot = 0;
-byte sunLeft = 0;
-byte sunRight = 0;
+float angleMain = 0;
+float angleSecond = 0;
+byte sunWest = 0;
+byte sunSouth = 0;
+byte sunEast = 0;
+byte sunNorth = 0;
 
 Scheduler scheduler;
 
@@ -57,20 +57,16 @@ void handleUI()
 {
 	if (appState == AppState::AUTOMATIC)
 	{
-		// ui.showAutomatic(
-		// 	(sunX + sunY) / 2,
-		// 	angleX, angleY);
-
-		ui.showDebugLDR(sunTop, sunBot,
-						sunLeft, sunRight,
+		ui.showDebugLDR(sunWest, sunSouth,
+						sunEast, sunNorth,
 						nows);
 	}
 	else
 	{
 		ui.showManual(
-			sunTop, sunBot, sunLeft, sunRight,
+			sunWest, sunSouth, sunEast, sunNorth,
 			xVal, yVal,
-			(angleX), (angleY),
+			(angleMain), (angleSecond),
 			selection, inEditMode);
 	}
 }
@@ -78,24 +74,17 @@ void handleUI()
 // === Sensor Update Task ===
 void handleSensorUpdate()
 {
+	mpu.update();
+	ldr.update();
 	rtc.update();
 	nows = rtc.getData();
-	if (appState == AppState::MANUAL)
-	{
-		mpu.update();
-		ldr.update();
 
-		angleX = lp[4].reading(mpu.getAccelRoll());
-		angleY = lp[5].reading(mpu.getAccelPitch());
-	}
-	else
-	{
-		ldr.update();
-		sunTop = lp[0].reading(ldr.getRawValue(0));
-		sunLeft = lp[1].reading(ldr.getRawValue(1));
-		sunBot = lp[2].reading(ldr.getRawValue(2));
-		sunRight = lp[3].reading(ldr.getRawValue(3));
-	}
+	sunWest = lp[0].reading(ldr.getRawValue(0));
+	sunEast = lp[1].reading(ldr.getRawValue(1));
+	sunSouth = lp[2].reading(ldr.getRawValue(2));
+	sunNorth = lp[3].reading(ldr.getRawValue(3));
+	angleMain = lp[4].reading(mpu.getAccelRoll());
+	angleSecond = lp[5].reading(mpu.getAccelPitch());
 }
 
 // === Control Actuator Task ===
@@ -107,30 +96,30 @@ void handleControl()
 		// -- Cloudy sky -- //
 		// static byte refSunLeft = 0;
 		// static byte refSunRight = 0;
-		// bool isCloudy = (sunTop < 50 && sunBot < 50 && sunLeft < 50 && sunRight < 50);
+		// bool isCloudy = (sunWest < 50 && sunSouth < 50 && sunEast < 50 && sunNorth < 50);
 		// if (isCloudy)
 		// {
 		// 	control.cloudyStrategy(
 		// 		millis(), ldr.getRawValue(4), ldr.getRawValue(5),
-		// 		refSunLeft, refSunRight, sunLeft, sunRight);
+		// 		refSunLeft, refSunRight, sunEast, sunNorth);
 		// }
 		// else
 		// {
-		// 	refSunLeft = sunLeft;
-		// 	refSunRight = sunRight;
+		// 	refSunLeft = sunEast;
+		// 	refSunRight = sunNorth;
 		// }
 
 		// -- Normal sky -- //
-		float diffX = sunTop - sunLeft;
-		float diffY = sunBot - sunRight;
-		control.runAutomatic(diffX, diffY);
+		float diffMain = sunWest - sunEast;
+		float diffSecond = sunSouth - sunNorth;
+		control.runAutomatic(diffMain, diffSecond);
 	}
 
 	else if (appState == AppState::MANUAL)
 	{
-		float raw_target_roll = (((xVal)));
-		float raw_target_pitch = (((yVal)));
-		control.runManual(raw_target_roll, raw_target_pitch, angleX, angleY);
+		float raw_target_roll = xVal;
+		float raw_target_pitch = yVal;
+		control.runManual(raw_target_roll, raw_target_pitch, angleMain, angleSecond);
 	}
 }
 

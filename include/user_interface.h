@@ -98,15 +98,17 @@ public:
         lcd.print(now.year);
 
         lcd.setCursor(0, 2);
-        lcd.print("T:");
+        lcd.print("West:");
         lcd.print(top);
-        lcd.print(" D:");
+        lcd.setCursor(10, 2);
+        lcd.print("South:");
         lcd.print(down);
 
         lcd.setCursor(0, 3);
-        lcd.print("L:");
+        lcd.print("East:");
         lcd.print(left);
-        lcd.print(" R:");
+        lcd.setCursor(10, 3);
+        lcd.print("North:");
         lcd.print(right);
     }
 };
