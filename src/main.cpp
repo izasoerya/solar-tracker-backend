@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <TaskScheduler.h>
+#include <avr/wdt.h>
 
 #include "filter.h"
 #include "user_interface.h"
@@ -9,6 +10,7 @@
 #include "sensor_rtc.h"
 #include "control_system.h"
 #include "sun_trajectory.h"
+#include "rtc_makeshift.h"
 
 #define STEP 1
 #define VAL_MIN -60
@@ -24,6 +26,7 @@ LowPassFilter lp[6];
 SunTracker sun;
 SensorRTC rtc;
 timeObject nows;
+RTCMakeshift mockRTC;
 
 AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
@@ -77,7 +80,9 @@ void handleSensorUpdate()
 	mpu.update();
 	ldr.update();
 	rtc.update();
+	mockRTC.update();
 	nows = rtc.getData();
+	sun.update(rtc.getData());
 
 	sunWest = lp[0].reading(ldr.getRawValue(0));
 	sunEast = lp[1].reading(ldr.getRawValue(1));
@@ -90,7 +95,7 @@ void handleSensorUpdate()
 // === Control Actuator Task ===
 void handleControl()
 {
-
+	wdt_reset();
 	if (appState == AppState::AUTOMATIC)
 	{
 		// -- Cloudy sky -- //
@@ -109,10 +114,51 @@ void handleControl()
 		// 	refSunRight = sunNorth;
 		// }
 
+#define NORMAL_MODE
+// #define MULTI_MODE
+#ifndef MULTI_MODE
+		float targetElevation = sun.getElevation();
+		float targetAzimuth = sun.getAzimuth();
+
+		if (sun.getElevation() < 0)
+		{
+			Serial.println("Outside Time");
+		}
+		else
+		{
+			SeptyanJaya angle = sun.septyanUpdate(targetAzimuth, targetElevation);
+			if (abs(angle.parsedX) <= 10 && abs(angle.parsedY) <= 5)
+			{
+				control.runManual(angle.parsedX, angle.parsedY, angleMain, angleSecond);
+				Serial.print("X: ");
+				Serial.print(angleMain);
+				Serial.print("  Y: ");
+				Serial.print(angleSecond);
+				Serial.print("  TX: ");
+				Serial.print(angle.parsedX);
+				Serial.print("  TY: ");
+				Serial.print(angle.parsedY);
+				Serial.print("       ");
+				Serial.print(mockRTC.getData().hour);
+				Serial.print(":");
+				Serial.print(mockRTC.getData().minute);
+				Serial.print(":");
+				Serial.println(mockRTC.getData().second);
+			}
+			else
+			{
+				float diffMain = sunWest - sunEast;
+				float diffSecond = sunSouth - sunNorth;
+				control.runAutomatic(diffMain, diffSecond);
+			}
+		}
+#endif
+#ifndef NORMAL_MODE
 		// -- Normal sky -- //
 		float diffMain = sunWest - sunEast;
 		float diffSecond = sunSouth - sunNorth;
 		control.runAutomatic(diffMain, diffSecond);
+#endif
 	}
 
 	else if (appState == AppState::MANUAL)
@@ -174,8 +220,8 @@ void handleInput()
 
 void setup()
 {
+	Serial.begin(115200);
 	Wire.begin();
-	// Wire.setTimeout(100000);
 
 	ui.init();
 	input.init();
@@ -185,6 +231,48 @@ void setup()
 	mpu.setFilterBandwidth(4);
 	ldr.begin();
 	rtc.begin();
+	mockRTC.begin();
+	wdt_disable();
+	delay(2L * 1000L);
+	wdt_enable(WDTO_120MS);
+
+	// Test Septyan Angle Calculation
+	// auto s0 = sun.septyanUpdate(77.51, 0.05);
+	// auto s1 = sun.septyanUpdate(73.6, 20.42);
+	// auto s2 = sun.septyanUpdate(69.1, 34.5);
+	// auto s3 = sun.septyanUpdate(61.0, 48.0);
+	// auto s4 = sun.septyanUpdate(300.0, 50.0);
+	// auto s5 = sun.septyanUpdate(288.0, 56.0);
+	// auto DOWN = sun.septyanUpdate(200, 0.13);
+	// auto TOP = sun.septyanUpdate(0.11, 70.0);
+	// Serial.print("TOPX: ");
+	// Serial.print(TOP.parsedX);
+	// Serial.print(" TOPY: ");
+	// Serial.print(TOP.parsedY);
+	// Serial.print(" DOWNX: ");
+	// Serial.print(DOWN.parsedX);
+	// Serial.print(" DOWNY: ");
+	// Serial.print(DOWN.parsedY);
+	// Serial.print("     ");
+	// Serial.print("X0: ");
+	// Serial.print(s0.parsedX);
+	// Serial.print(" Y0: ");
+	// Serial.print(s0.parsedY);
+	// Serial.print("     ");
+	// Serial.print("X0: ");
+	// Serial.print(s0.parsedX);
+	// Serial.print(" Y0: ");
+	// Serial.print(s0.parsedY);
+	// Serial.print("     ");
+	// Serial.print("X4: ");
+	// Serial.print(s4.parsedX);
+	// Serial.print(" Y4: ");
+	// Serial.print(s4.parsedY);
+	// Serial.print("     ");
+	// Serial.print("X5: ");
+	// Serial.print(s5.parsedX);
+	// Serial.print(" Y5: ");
+	// Serial.println(s5.parsedY);
 
 	scheduler.init();
 	scheduler.addTask(serveUI);
