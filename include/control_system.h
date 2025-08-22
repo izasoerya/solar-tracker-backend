@@ -20,13 +20,13 @@ AxisState stateY = SEEKING;
 class ControlSystem
 {
 private:
-    const float Kp_X = 5.0; // Proportional gain for X-axis motor
-    const float Kp_Y = 2.5; // Proportional gain for Y-axis motor
+    const float Kp_X = 20.0; // Proportional gain for X-axis motor
+    const float Kp_Y = 10;   // Proportional gain for Y-axis motor
 
     Motor &motorX = driverX;
     Motor &motorY = driverY;
 
-    const uint8_t MAX_MOTOR_SPEED = 150;
+    const uint8_t MAX_MOTOR_SPEED = 255;
     const uint8_t MIN_MOTOR_SPEED = 75;
     const float DEAD_ZONE_DEGREES = 0.1;
 
@@ -35,9 +35,71 @@ private:
     float lastTargetX = 0;
     float lastTargetY = 0;
 
+    float pControl(float target, float current, float Kp, float deadZone, Motor &motor, AxisState &state, float &lastTarget, uint8_t minSpeed, uint8_t maxSpeed)
+    {
+        float error = target - current;
+
+        // Reset state if target changes
+        if (target != lastTarget)
+        {
+            state = SEEKING;
+            lastTarget = target;
+        }
+
+        switch (state)
+        {
+        case SEEKING:
+            if (abs(error) <= deadZone)
+            {
+                motor.stop();
+                state = HOLDING;
+            }
+            else
+            {
+                int motorSpeed = static_cast<int>(Kp * error);
+                motorSpeed = constrain(motorSpeed, -maxSpeed, maxSpeed);
+
+                if (motorSpeed > 0)
+                {
+                    if (motorSpeed < minSpeed)
+                        motorSpeed = minSpeed;
+                    motor.turnRight(motorSpeed);
+                }
+                else if (motorSpeed < 0)
+                {
+                    if (abs(motorSpeed) < minSpeed)
+                        motorSpeed = -minSpeed;
+                    motor.turnLeft(abs(motorSpeed));
+                }
+            }
+            break;
+        case HOLDING:
+            if (abs(error) > deadZone + 0.2)
+            {
+                state = SEEKING;
+            }
+            else
+            {
+                motor.stop();
+            }
+            break;
+        }
+        return error;
+    }
+
 public:
     ControlSystem();
     ~ControlSystem();
+
+    void runX(float target, float current)
+    {
+        pControl(target, current, Kp_X, DEAD_ZONE_DEGREES, motorX, manualStateX, lastTargetX, MIN_MOTOR_SPEED, MAX_MOTOR_SPEED);
+    }
+
+    void runY(float target, float current)
+    {
+        pControl(target, current, Kp_Y, DEAD_ZONE_DEGREES, motorY, manualStateY, lastTargetY, MIN_MOTOR_SPEED, MAX_MOTOR_SPEED);
+    }
 
     void runManual(float axisX, float axisY, float angleMain, float angleSecond);
     void runAutomatic(float centerVectorX, float centerVectorY);
