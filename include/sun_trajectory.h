@@ -1,108 +1,75 @@
 #include <Arduino.h>
 #include <sensor_rtc.h>
-#include <math.h> // For trigonometric functions
+#include <math.h>
 
-// =================================================================
-// SunTracker Class Definition
-// =================================================================
+static inline float deg2rad(float d) { return d * (M_PI / 180.0f); }
+static inline float rad2deg(float r) { return r * (180.0f / M_PI); }
+
+struct SeptyanJaya
+{
+    float parsedX;
+    float parsedY;
+};
+
 class SunTracker
 {
 public:
-    // Constructor: Initializes the tracker with a specific location
     SunTracker();
-
-    // Main calculation method: Updates the sun's position based on the given time
     void update(const timeObject &time);
-
-    // Getter methods to retrieve the calculated angles
+    SeptyanJaya septyanUpdate(float azimuth, float elevation);
     float getAzimuth() const;
     float getElevation() const;
+    int calculateDayOfYear(byte day, byte month, byte year);
 
 private:
-    // --- Configuration (set once at creation) ---
-    const float _latitude;
-    const float _longitude;
-    const float _timezone;
+    const float _latitude = -7.7657162;
+    const float _longitude = 110.3702127;
+    const float _timezone = 7;
+    float _azimuth = 0;
+    float _elevation = 0;
 
-    // --- State Variables (updated by calling update()) ---
-    float _azimuth;
-    float _elevation;
-
-    // --- Private Helper Methods ---
-    int calculateDayOfYear(byte day, byte month /*, int year */);
     void calculateSunAngles(int dayOfYear, float fractionalHour);
 };
 
-// =================================================================
-// SunTracker Class Implementation
-// =================================================================
+SunTracker::SunTracker() {}
 
-/**
- * @brief Constructor for the SunTracker class.
- * @param latitude The latitude of the location in decimal degrees.
- * @param longitude The longitude of the location in decimal degrees.
- * @param timezone The UTC timezone offset of the location.
- */
-SunTracker::SunTracker()
-    : _latitude(-7),
-      _longitude(1),
-      _timezone(7),
-      _azimuth(0.0),
-      _elevation(0.0)
-{
-}
-
-/**
- * @brief Updates the internal azimuth and elevation angles for the given time.
- * @param time A timeObject struct containing the date and time.
- */
 void SunTracker::update(const timeObject &time)
 {
-    // 1. Calculate day of the year.
-    // NOTE: This helper function does not account for leap years without a 'year' parameter.
-    int dayOfYear = calculateDayOfYear(time.day, time.month);
-
-    // 2. Convert time to a fractional hour for calculations.
-    // NOTE: Precision is lost here without minutes and seconds.
-    float fractionalHour = static_cast<float>(time.hour);
-
-    // 3. Perform the main astronomical calculations.
+    int dayOfYear = calculateDayOfYear(time.day, time.month, time.year);
+    float fractionalHour = time.hour + time.minute / 60.0 + time.second / 3600.0;
     calculateSunAngles(dayOfYear, fractionalHour);
 }
 
-/**
- * @brief Gets the last calculated Azimuth angle.
- * @return Azimuth in degrees (0=N, 90=E, 180=S, 270=W).
- */
+SeptyanJaya SunTracker::septyanUpdate(float azimuth, float elevation)
+{
+    float radX = -atan2(sin(deg2rad(elevation)), (sin(deg2rad(azimuth)) * cos(deg2rad(elevation))));
+    float radY = -asin(cos(deg2rad(azimuth)) * cos(deg2rad(elevation)));
+    SeptyanJaya septy;
+    septy.parsedX = -90 - rad2deg(radX);
+    septy.parsedY = rad2deg(radY);
+    return septy;
+}
+
 float SunTracker::getAzimuth() const
 {
     return _azimuth;
 }
 
-/**
- * @brief Gets the last calculated Elevation angle.
- * @return Elevation in degrees (angle above the horizon).
- */
 float SunTracker::getElevation() const
 {
     return _elevation;
 }
 
-// --- Private Methods Implementation ---
-
-/**
- * @brief Calculates the day of the year (1-365).
- * WARNING: This implementation does not account for leap years!
- */
-int SunTracker::calculateDayOfYear(byte day, byte month /*, int year */)
+int SunTracker::calculateDayOfYear(byte day, byte month, byte year)
 {
-    const int daysInMonth[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    int doy = 0;
-    // To add leap year support:
-    // if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) {
-    //     daysInMonth[2] = 29;
-    // }
-    for (int i = 1; i < month; ++i)
+    byte daysInMonth[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    uint16_t doy = 0;
+    uint16_t correctYear = 2000 + year;
+    if (correctYear % 4 == 0 && (correctYear % 100 != 0 || correctYear % 400 == 0))
+    {
+        daysInMonth[2] = 29;
+    }
+    for (byte i = 1; i < month; ++i)
     {
         doy += daysInMonth[i];
     }
@@ -110,11 +77,6 @@ int SunTracker::calculateDayOfYear(byte day, byte month /*, int year */)
     return doy;
 }
 
-/**
- * @brief The core solar position calculation logic. Updates private member variables.
- * @param dayOfYear The current day of the year (1-366).
- * @param fractionalHour The current hour of the day (e.g., 15.5 for 3:30 PM).
- */
 void SunTracker::calculateSunAngles(int dayOfYear, float fractionalHour)
 {
     // Convert latitude to radians for calculations
@@ -153,3 +115,87 @@ void SunTracker::calculateSunAngles(int dayOfYear, float fractionalHour)
         _azimuth = 360.0 - _azimuth;
     }
 }
+
+#define TEST_CASE
+#ifndef TEST_CASE
+SunTracker sunTracker;
+
+// Variables to hold the simulated time
+timeObject simulatedTime;
+
+// Timer variables for mocking time
+unsigned long previousMillis = 0;
+const long interval = 1000; // 1 second real-time interval
+
+void setup()
+{
+    Serial.begin(115200);
+    while (!Serial)
+        ; // Wait for Serial Monitor to open
+
+    Serial.println("\n--- SunTracker Class Test ---");
+    Serial.println("Simulating a full day. Time will advance by 30 minutes every second.");
+
+    // Set the starting date for the simulation (using today's date)
+    simulatedTime.day = 21;
+    simulatedTime.month = 8;
+    simulatedTime.year = 25; // For 2025
+    simulatedTime.hour = 0;
+    simulatedTime.minute = 0;
+    simulatedTime.second = 0;
+
+    Serial.println("\nSimulated Time\t\tAzimuth (deg)\tElevation (deg)");
+    Serial.println("==========================================================");
+}
+
+void loop()
+{
+    // Check if one second of real time has passed
+    if (millis() - previousMillis >= interval)
+    {
+        previousMillis = millis(); // Reset the timer
+
+        // 1. Update the SunTracker with the current simulated time
+        sunTracker.update(simulatedTime);
+
+        // 2. Get the results
+        float azimuth = sunTracker.getAzimuth();
+        float elevation = sunTracker.getElevation();
+
+        // 3. Print the formatted output
+        char timeBuffer[20];
+        sprintf(timeBuffer, "%02d/%02d/%02d %02d:%02d:%02d",
+                simulatedTime.day, simulatedTime.month, simulatedTime.year,
+                simulatedTime.hour, simulatedTime.minute, simulatedTime.second);
+
+        Serial.print(timeBuffer);
+        Serial.print("\t");
+        Serial.print(azimuth, 2); // Print with 2 decimal places
+        Serial.print("\t\t");
+        Serial.print(elevation, 2);
+
+        // Print a marker for when the sun is up
+        if (elevation > 0)
+        {
+            Serial.println("\t<-- Sun is up");
+        }
+        else
+        {
+            Serial.println();
+        }
+
+        // 4. Advance the simulated time by 30 minutes
+        simulatedTime.minute += 30;
+        if (simulatedTime.minute >= 60)
+        {
+            simulatedTime.minute = 0;
+            simulatedTime.hour++;
+            if (simulatedTime.hour >= 24)
+            {
+                simulatedTime.hour = 0;
+                Serial.println("--- 24 hours simulated, resetting day. ---");
+            }
+        }
+    }
+}
+#endif
