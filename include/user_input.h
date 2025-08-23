@@ -29,11 +29,11 @@ public:
         auto dir = encoder.getDirection();
         if (dir == RotaryEncoder::Direction::CLOCKWISE)
         {
-            lastDir = 1;
+            lastDir = -1;
         }
         else if (dir == RotaryEncoder::Direction::COUNTERCLOCKWISE)
         {
-            lastDir = -1;
+            lastDir = 1;
         }
         else
         {
