@@ -10,7 +10,7 @@
 #include "sensor_rtc.h"
 #include "control_system.h"
 #include "sun_trajectory.h"
-#include "rtc_makeshift.h"
+// #include "rtc_makeshift.h"
 
 #define STEP 1
 #define VAL_MIN -60
@@ -26,11 +26,12 @@ LowPassFilter lp[6];
 SunTracker sun;
 SensorRTC rtc;
 timeObject nows;
-RTCMakeshift mockRTC;
+// RTCMakeshift mockRTC;
 
 AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
 bool inEditMode = false;
+bool inLDRMode = false;
 
 int8_t xVal = 0;
 int8_t yVal = 0;
@@ -62,7 +63,7 @@ void handleUI()
 	{
 		ui.showDebugLDR(sunWest, sunSouth,
 						sunEast, sunNorth,
-						nows);
+						nows, inLDRMode);
 	}
 	else
 	{
@@ -80,9 +81,9 @@ void handleSensorUpdate()
 	mpu.update();
 	ldr.update();
 	rtc.update();
-	mockRTC.update();
+	// mockRTC.update();
 	nows = rtc.getData();
-	sun.update(rtc.getData());
+	sun.update(nows);
 
 	sunWest = lp[0].reading(ldr.getRawValue(0));
 	sunEast = lp[1].reading(ldr.getRawValue(1));
@@ -113,23 +114,34 @@ void handleControl()
 		// 	refSunLeft = sunEast;
 		// 	refSunRight = sunNorth;
 		// }
-
-#define NORMAL_MODE
-// #define MULTI_MODE
-#ifndef MULTI_MODE
-		float targetElevation = sun.getElevation();
-		float targetAzimuth = sun.getAzimuth();
-
-		if (sun.getElevation() < 0)
+		if ((nows.hour >= 20 && nows.hour <= 23) || (nows.hour >= 0 && nows.hour <= 3))
 		{
-			Serial.println("Outside Time");
+			control.runManual(0, 0, angleMain, angleSecond);
 		}
 		else
 		{
-			SeptyanJaya angle = sun.septyanUpdate(targetAzimuth, targetElevation);
-			if (abs(angle.parsedX) <= 10 && abs(angle.parsedY) <= 5)
+			float targetElevation = sun.getElevation();
+			float targetAzimuth = sun.getAzimuth();
+
+			if (sun.getElevation() < 0)
 			{
-				control.runManual(angle.parsedX, angle.parsedY, angleMain, angleSecond);
+				Serial.println("Outside Time");
+				return;
+			}
+
+			else
+			{
+				SeptyanJaya angle = sun.septyanUpdate(targetAzimuth, targetElevation);
+				bool xInThreshold = fabs(angle.parsedX - angleMain) <= 15;
+				bool yInThreshold = fabs(angle.parsedY - angleSecond) <= 10;
+				if (!xInThreshold)
+				{
+					control.runX(angle.parsedX, angleMain);
+				}
+				if (!yInThreshold)
+				{
+					control.runY(angle.parsedY, angleSecond);
+				}
 				Serial.print("X: ");
 				Serial.print(angleMain);
 				Serial.print("  Y: ");
@@ -139,26 +151,47 @@ void handleControl()
 				Serial.print("  TY: ");
 				Serial.print(angle.parsedY);
 				Serial.print("       ");
-				Serial.print(mockRTC.getData().hour);
+				Serial.print(rtc.getData().hour);
 				Serial.print(":");
-				Serial.print(mockRTC.getData().minute);
+				Serial.print(rtc.getData().minute);
 				Serial.print(":");
-				Serial.println(mockRTC.getData().second);
-			}
-			else
-			{
-				float diffMain = sunWest - sunEast;
-				float diffSecond = sunSouth - sunNorth;
-				control.runAutomatic(diffMain, diffSecond);
+				Serial.println(rtc.getData().second);
+
+				if (xInThreshold && yInThreshold)
+				{
+					Serial.println("LDR Adjustment");
+					inLDRMode = true;
+					float diffMain = sunWest - sunEast;
+					float diffSecond = sunSouth - sunNorth;
+
+					const float LDR_DEADBAND_PERCENT = 0.05f; // 5%
+					float deadbandMain = LDR_DEADBAND_PERCENT * max(sunWest, sunEast);
+					float deadbandSecond = LDR_DEADBAND_PERCENT * max(sunSouth, sunNorth);
+
+					float angleParsedXOverflow = angle.parsedX;
+					float angleParsedYOverflow = angle.parsedY;
+
+					if (fabs(diffMain) > deadbandMain)
+					{
+						angleParsedXOverflow += (diffMain > 0) ? 1 : -1;
+					}
+					if (fabs(diffSecond) > deadbandSecond)
+					{
+						angleParsedYOverflow += (diffSecond > 0) ? 1 : -1;
+					}
+					control.runManual(angleParsedXOverflow, angleParsedYOverflow, angleMain, angleSecond);
+				}
+				else
+				{
+					inLDRMode = false;
+				}
 			}
 		}
-#endif
-#ifndef NORMAL_MODE
-		// -- Normal sky -- //
-		float diffMain = sunWest - sunEast;
-		float diffSecond = sunSouth - sunNorth;
-		control.runAutomatic(diffMain, diffSecond);
-#endif
+
+		// // -- Normal sky -- //
+		// float diffMain = sunWest - sunEast;
+		// float diffSecond = sunSouth - sunNorth;
+		// control.runAutomatic(diffMain, diffSecond);
 	}
 
 	else if (appState == AppState::MANUAL)
@@ -231,7 +264,7 @@ void setup()
 	mpu.setFilterBandwidth(4);
 	ldr.begin();
 	rtc.begin();
-	mockRTC.begin();
+	// mockRTC.begin();
 	wdt_disable();
 	delay(2L * 1000L);
 	wdt_enable(WDTO_120MS);
