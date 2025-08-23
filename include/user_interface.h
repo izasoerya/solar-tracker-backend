@@ -81,7 +81,7 @@ public:
         }
     }
 
-    void showDebugLDR(byte top, byte down, byte left, byte right, timeObject now)
+    void showDebugLDR(byte top, byte down, byte left, byte right, timeObject now, bool inLDRMode)
     {
         lcd.clear();
         lcd.setCursor(0, 0);
@@ -96,6 +96,7 @@ public:
         lcd.print(now.month);
         lcd.print("/");
         lcd.print(now.year);
+        inLDRMode ? lcd.print("*") : lcd.print("");
 
         lcd.setCursor(0, 2);
         lcd.print("West:");
