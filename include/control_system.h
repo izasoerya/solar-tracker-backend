@@ -26,7 +26,7 @@ private:
     Motor &motorX = driverX;
     Motor &motorY = driverY;
 
-    const uint8_t MAX_MOTOR_SPEED = 255;
+    const uint8_t MAX_MOTOR_SPEED = 180;
     const uint8_t MIN_MOTOR_SPEED = 75;
     const float DEAD_ZONE_DEGREES = 0.1;
 

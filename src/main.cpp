@@ -164,20 +164,19 @@ void handleControl()
 					float diffMain = sunWest - sunEast;
 					float diffSecond = sunSouth - sunNorth;
 
-					const float LDR_DEADBAND_PERCENT = 0.05f; // 5%
-					float deadbandMain = LDR_DEADBAND_PERCENT * max(sunWest, sunEast);
-					float deadbandSecond = LDR_DEADBAND_PERCENT * max(sunSouth, sunNorth);
+					float deadbandMain = (min(sunWest, sunEast) / max(sunWest, sunEast));
+					float deadbandSecond = (min(sunSouth, sunNorth) / max(sunSouth, sunNorth));
 
 					float angleParsedXOverflow = angle.parsedX;
 					float angleParsedYOverflow = angle.parsedY;
 
-					if (fabs(diffMain) > deadbandMain)
+					if (deadbandMain < 0.9)
 					{
-						angleParsedXOverflow += (diffMain > 0) ? 1 : -1;
+						angleParsedXOverflow += (diffMain > 0) ? 0.25 : -0.25;
 					}
-					if (fabs(diffSecond) > deadbandSecond)
+					if (deadbandSecond < 0.9)
 					{
-						angleParsedYOverflow += (diffSecond > 0) ? 1 : -1;
+						angleParsedYOverflow += (diffSecond > 0) ? 0.25 : -0.25;
 					}
 					control.runManual(angleParsedXOverflow, angleParsedYOverflow, angleMain, angleSecond);
 				}
