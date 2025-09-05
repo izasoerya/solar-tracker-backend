@@ -8,15 +8,15 @@
 
 struct ModelIMU
 {
-    float xa;
-    float ya;
-    float za;
-    float xg;
-    float yg;
-    float zg;
-    float Accelroll;
-    float Accelpitch;
-    float Accelyaw;
+    float xa = 0;
+    float ya = 0;
+    float za = 0;
+    float xg = 0;
+    float yg = 0;
+    float zg = 0;
+    float Accelroll = 0;
+    float Accelpitch = 0;
+    float Accelyaw = 0;
 };
 
 class SensorMPU
@@ -195,15 +195,32 @@ public:
 
     void update()
     {
-        sensors_event_t aevent, mevent, gevent;
+        if (!active)
+            return;
+
+        sensors_event_t aevent, mevent;
         fxos.getEvent(&aevent, &mevent);
+
+        // Basic sanity check (NaN or out-of-range values)
+        if (isnan(aevent.acceleration.x) || fabs(aevent.acceleration.x) > 100.0 ||
+            isnan(aevent.acceleration.y) || fabs(aevent.acceleration.y) > 100.0 ||
+            isnan(aevent.acceleration.z) || fabs(aevent.acceleration.z) > 100.0)
+        {
+            // Timeout or invalid read – try I2C recovery
+            Wire.end();
+            delay(10);
+            Wire.begin();
+            return;
+        }
 
         imuData.xa = -1 * aevent.acceleration.y;
         imuData.ya = aevent.acceleration.x;
         imuData.za = aevent.acceleration.z;
-        imuData.xg = -1 * gevent.gyro.y;
-        imuData.yg = gevent.gyro.x;
-        imuData.zg = gevent.gyro.z;
+
+        // NOTE: FXOS8700 is only accel + mag, no gyro.
+        imuData.xg = 0;
+        imuData.yg = 0;
+        imuData.zg = 0;
 
         imuData.Accelroll = atan2(imuData.ya, imuData.za) * 180.0 / PI;
         imuData.Accelpitch = atan2(-imuData.xa, sqrt(imuData.ya * imuData.ya + imuData.za * imuData.za)) * 180.0 / PI;
