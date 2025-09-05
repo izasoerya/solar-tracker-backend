@@ -1,5 +1,4 @@
 #include <Wire.h>
-#include <TaskScheduler.h>
 #include <avr/wdt.h>
 
 #include "filter.h"
@@ -10,7 +9,7 @@
 #include "sensor_rtc.h"
 #include "control_system.h"
 #include "sun_trajectory.h"
-// #include "rtc_makeshift.h"
+#include "rtc_makeshift.h"
 
 #define STEP 1
 #define VAL_MIN -60
@@ -28,10 +27,25 @@ SensorRTC rtc;
 timeObject nows;
 // RTCMakeshift mockRTC;
 
+// === Timing trackers ===
+unsigned long lastUI = 0;
+unsigned long lastSensors = 0;
+unsigned long lastControl = 0;
+unsigned long lastInput = 0;
+
+// === Intervals ===
+const unsigned long UI_INTERVAL = 1000;	   // 1s
+const unsigned long SENS_INTERVAL = 100;   // 100ms
+const unsigned long CONTROL_INTERVAL = 20; // 20ms
+const unsigned long INPUT_INTERVAL = 5;	   // 5ms
+
 AppState appState = AppState::AUTOMATIC;
 ManualSelection selection = ManualSelection::X;
 bool inEditMode = false;
 bool inLDRMode = false;
+
+unsigned long bootMillis = 0;
+bool allowWDT = true;
 
 int8_t xVal = 0;
 int8_t yVal = 0;
@@ -42,19 +56,11 @@ byte sunSouth = 0;
 byte sunEast = 0;
 byte sunNorth = 0;
 
-Scheduler scheduler;
-
 // === Function Prototypes ===
 void handleUI();
 void handleSensorUpdate();
 void handleControl();
 void handleInput();
-
-// === Tasks ===
-Task serveUI(500, TASK_FOREVER, &handleUI);				  // UI updates every 1 second
-Task updateSensors(8, TASK_FOREVER, &handleSensorUpdate); // Sensor updates every 10ms
-Task controlTask(20, TASK_FOREVER, &handleControl);		  // Control every 20ms
-Task inputTask(5, TASK_FOREVER, &handleInput);			  // Input reading every 5ms
 
 // === UI Update Task ===
 void handleUI()
@@ -89,8 +95,8 @@ void handleSensorUpdate()
 	sunEast = lp[1].reading(ldr.getRawValue(1));
 	sunSouth = lp[2].reading(ldr.getRawValue(2));
 	sunNorth = lp[3].reading(ldr.getRawValue(3));
-	angleMain = lp[4].reading(mpu.getAccelRoll());
-	angleSecond = lp[5].reading(mpu.getAccelPitch());
+	angleMain = lp[4].reading(mpu.getAccelRoll() * 1.028 - 0.113);
+	angleSecond = lp[5].reading(mpu.getAccelPitch() + 0.2);
 }
 
 // === Control Actuator Task ===
@@ -123,16 +129,17 @@ void handleControl()
 			float targetElevation = sun.getElevation();
 			float targetAzimuth = sun.getAzimuth();
 
-			if (sun.getElevation() < 0)
+			if (sun.getElevation() < 0 && nows.hour > 3)
 			{
-				Serial.println("Outside Time");
+				// Serial.println("Outside Time");
+				control.runManual(-60, 0, angleMain, angleSecond);
 				return;
 			}
 
 			else
 			{
 				SeptyanJaya angle = sun.septyanUpdate(targetAzimuth, targetElevation);
-				bool xInThreshold = fabs(angle.parsedX - angleMain) <= 15;
+				bool xInThreshold = fabs(angle.parsedX - angleMain) <= 10;
 				bool yInThreshold = fabs(angle.parsedY - angleSecond) <= 10;
 				if (!xInThreshold)
 				{
@@ -142,24 +149,24 @@ void handleControl()
 				{
 					control.runY(angle.parsedY, angleSecond);
 				}
-				Serial.print("X: ");
-				Serial.print(angleMain);
-				Serial.print("  Y: ");
-				Serial.print(angleSecond);
-				Serial.print("  TX: ");
-				Serial.print(angle.parsedX);
-				Serial.print("  TY: ");
-				Serial.print(angle.parsedY);
-				Serial.print("       ");
-				Serial.print(rtc.getData().hour);
-				Serial.print(":");
-				Serial.print(rtc.getData().minute);
-				Serial.print(":");
-				Serial.println(rtc.getData().second);
+				// Serial.print("X: ");
+				// Serial.print(angleMain);
+				// Serial.print("  Y: ");
+				// Serial.print(angleSecond);
+				// Serial.print("  TX: ");
+				// Serial.print(angle.parsedX);
+				// Serial.print("  TY: ");
+				// Serial.print(angle.parsedY);
+				// Serial.print("       ");
+				// Serial.print(rtc.getData().hour);
+				// Serial.print(":");
+				// Serial.print(rtc.getData().minute);
+				// Serial.print(":");
+				// Serial.println(rtc.getData().second);
 
 				if (xInThreshold && yInThreshold)
 				{
-					Serial.println("LDR Adjustment");
+					// Serial.println("LDR Adjustment");
 					inLDRMode = true;
 					float diffMain = sunWest - sunEast;
 					float diffSecond = sunSouth - sunNorth;
@@ -178,7 +185,7 @@ void handleControl()
 					{
 						angleParsedYOverflow += (diffSecond > 0) ? 0.25 : -0.25;
 					}
-					control.runManual(angleParsedXOverflow, angleParsedYOverflow, angleMain, angleSecond);
+					control.runManual(angleParsedXOverflow, angleParsedYOverflow, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
 				}
 				else
 				{
@@ -186,18 +193,11 @@ void handleControl()
 				}
 			}
 		}
-
-		// // -- Normal sky -- //
-		// float diffMain = sunWest - sunEast;
-		// float diffSecond = sunSouth - sunNorth;
-		// control.runAutomatic(diffMain, diffSecond);
 	}
 
 	else if (appState == AppState::MANUAL)
 	{
-		float raw_target_roll = xVal;
-		float raw_target_pitch = yVal;
-		control.runManual(raw_target_roll, raw_target_pitch, angleMain, angleSecond);
+		control.runManual(xVal, yVal, angleMain, angleSecond);
 	}
 }
 
@@ -230,15 +230,15 @@ void handleInput()
 			}
 		}
 
-		int dir = input.getDirection();
+		int8_t dir = input.getDirection();
 		if (dir != 0)
 		{
 			if (inEditMode)
 			{
 				if (selection == ManualSelection::X)
-					xVal = constrain(xVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
+					xVal = constrain(xVal + dir * STEP, VAL_MIN, VAL_MAX);
 				else if (selection == ManualSelection::Y)
-					yVal = constrain(yVal + dir * STEP * -1, VAL_MIN, VAL_MAX);
+					yVal = constrain(yVal + dir * STEP, VAL_MIN, VAL_MAX);
 			}
 			else
 			{
@@ -252,73 +252,57 @@ void handleInput()
 
 void setup()
 {
-	Serial.begin(115200);
+	// Serial.begin(115200);
 	Wire.begin();
+	Wire.setClock(10000);
 
 	ui.init();
 	input.init();
 	mpu.begin();
-	mpu.setGyroSensitivity(0);
-	mpu.setAccelSensitivity(0);
-	mpu.setFilterBandwidth(4);
 	ldr.begin();
 	rtc.begin();
 	// mockRTC.begin();
+
 	wdt_disable();
-	delay(2L * 1000L);
+	delay(2000);
 	wdt_enable(WDTO_120MS);
-
-	// Test Septyan Angle Calculation
-	// auto s0 = sun.septyanUpdate(77.51, 0.05);
-	// auto s1 = sun.septyanUpdate(73.6, 20.42);
-	// auto s2 = sun.septyanUpdate(69.1, 34.5);
-	// auto s3 = sun.septyanUpdate(61.0, 48.0);
-	// auto s4 = sun.septyanUpdate(300.0, 50.0);
-	// auto s5 = sun.septyanUpdate(288.0, 56.0);
-	// auto DOWN = sun.septyanUpdate(200, 0.13);
-	// auto TOP = sun.septyanUpdate(0.11, 70.0);
-	// Serial.print("TOPX: ");
-	// Serial.print(TOP.parsedX);
-	// Serial.print(" TOPY: ");
-	// Serial.print(TOP.parsedY);
-	// Serial.print(" DOWNX: ");
-	// Serial.print(DOWN.parsedX);
-	// Serial.print(" DOWNY: ");
-	// Serial.print(DOWN.parsedY);
-	// Serial.print("     ");
-	// Serial.print("X0: ");
-	// Serial.print(s0.parsedX);
-	// Serial.print(" Y0: ");
-	// Serial.print(s0.parsedY);
-	// Serial.print("     ");
-	// Serial.print("X0: ");
-	// Serial.print(s0.parsedX);
-	// Serial.print(" Y0: ");
-	// Serial.print(s0.parsedY);
-	// Serial.print("     ");
-	// Serial.print("X4: ");
-	// Serial.print(s4.parsedX);
-	// Serial.print(" Y4: ");
-	// Serial.print(s4.parsedY);
-	// Serial.print("     ");
-	// Serial.print("X5: ");
-	// Serial.print(s5.parsedX);
-	// Serial.print(" Y5: ");
-	// Serial.println(s5.parsedY);
-
-	scheduler.init();
-	scheduler.addTask(serveUI);
-	scheduler.addTask(updateSensors);
-	scheduler.addTask(controlTask);
-	scheduler.addTask(inputTask);
-
-	serveUI.enable();
-	updateSensors.enable();
-	controlTask.enable();
-	inputTask.enable();
+	bootMillis = millis();
+	allowWDT = true;
 }
 
 void loop()
 {
-	scheduler.execute();
+	unsigned long now = millis();
+	if (allowWDT && (now - bootMillis >= 900000UL))
+	{
+		allowWDT = false;
+	}
+
+	if (now - lastUI >= UI_INTERVAL)
+	{
+		lastUI = now;
+		handleUI();
+	}
+
+	if (now - lastSensors >= SENS_INTERVAL)
+	{
+		lastSensors = now;
+		handleSensorUpdate();
+	}
+
+	if (now - lastControl >= CONTROL_INTERVAL)
+	{
+		lastControl = now;
+		if (allowWDT)
+		{
+			wdt_reset();
+		}
+		handleControl();
+	}
+
+	if (now - lastInput >= INPUT_INTERVAL)
+	{
+		lastInput = now;
+		handleInput();
+	}
 }
