@@ -90,12 +90,13 @@ public:
         lcd.print(now.minute);
         lcd.print(":");
         lcd.print(now.second);
-        lcd.print("|");
+        lcd.print(" ");
         lcd.print(now.day);
         lcd.print("/");
         lcd.print(now.month);
         lcd.print("/");
         lcd.print(now.year);
+        lcd.setCursor(19, 0);
         inLDRMode ? lcd.print("*") : lcd.print("");
 
         lcd.setCursor(0, 2);
