@@ -12,6 +12,7 @@ private:
     float _roll, _pitch, _yaw;
     Madgwick _filter;
     ModelIMU _imuData;
+    bool active = false;
 
     float convertRawAcceleration(int aRaw)
     {
@@ -32,6 +33,8 @@ public:
     void update(ModelIMU imu);
     float getRoll();
     float getPitch();
+    void end();
+    bool isActive();
 };
 
 MadgwickIMU::MadgwickIMU() {}
@@ -66,3 +69,7 @@ void MadgwickIMU::update(ModelIMU imu)
 float MadgwickIMU::getRoll() { return _roll; }
 
 float MadgwickIMU::getPitch() { return _pitch; }
+
+void MadgwickIMU::end() { active = false; }
+
+bool MadgwickIMU::isActive() { return active; }

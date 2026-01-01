@@ -5,23 +5,27 @@
 class LowPassFilter
 {
 private:
-    const uint8_t alpha = 0.1;
-    float prevFiltered = 1;
+    float _alpha;
+    float _filteredValue;
+    bool _hasInitialValue = false;
 
 public:
-    LowPassFilter();
-    ~LowPassFilter();
-    float reading(float newReading);
+    LowPassFilter() : _alpha(0.1), _filteredValue(0.0) {}
+    ~LowPassFilter() {}
+
+    float reading(float newReading)
+    {
+        if (!_hasInitialValue)
+        {
+            _filteredValue = newReading;
+            _hasInitialValue = true;
+        }
+
+        float newFilteredValue = _alpha * newReading + (1.0 - _alpha) * _filteredValue;
+        _filteredValue = newFilteredValue;
+        return _filteredValue;
+    }
 };
-
-LowPassFilter::LowPassFilter() {}
-
-LowPassFilter::~LowPassFilter() {}
-
-float LowPassFilter::reading(float newReading)
-{
-    return alpha * newReading + (1 - alpha) * prevFiltered;
-}
 
 class MovingAverageFilter
 {

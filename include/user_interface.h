@@ -1,6 +1,7 @@
 #pragma once
 
 #include <LCD_I2C.h>
+#include "sensor_rtc.h"
 
 enum class AppState
 {
@@ -47,7 +48,10 @@ public:
         lcd.print(y);
     }
 
-    void showManual(uint8_t sun, int x, int y, float mpuX, float mpuY, ManualSelection selection, bool inEdit)
+    void showManual(
+        byte sunTop, byte sunBot, byte sunLeft, byte sunRight,
+        int x, int y, float mpuX, float mpuY,
+        ManualSelection selection, bool inEdit)
     {
         lcd.clear();
         lcd.setCursor(0, 0);
@@ -75,34 +79,38 @@ public:
                 lcd.print((selected ? ">" : " ") + String("Back"));
             }
         }
-
-        // Print actual MPU values to Serial
-        Serial.print("Actual MPU X: ");
-        Serial.print(mpuX);
-        Serial.print(" | Actual MPU Y: ");
-        Serial.println(mpuY);
     }
 
-    void showDebugLDR(int ldr0, int ldr1, int ldr2, int ldr3, int ldr4, int ldr5)
+    void showDebugLDR(byte top, byte down, byte left, byte right, timeObject now, bool inLDRMode)
     {
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("LDR Debug:");
-
-        lcd.setCursor(0, 1);
-        lcd.print("0:");
-        lcd.print(ldr0);
-        lcd.print(" 1:");
-        lcd.print(ldr1);
-        lcd.print(" 2:");
-        lcd.print(ldr2);
+        lcd.print(now.hour);
+        lcd.print(":");
+        lcd.print(now.minute);
+        lcd.print(":");
+        lcd.print(now.second);
+        lcd.print(" ");
+        lcd.print(now.day);
+        lcd.print("/");
+        lcd.print(now.month);
+        lcd.print("/");
+        lcd.print(now.year);
+        lcd.setCursor(19, 0);
+        inLDRMode ? lcd.print("*") : lcd.print("");
 
         lcd.setCursor(0, 2);
-        lcd.print("3:");
-        lcd.print(ldr3);
-        lcd.print(" 4:");
-        lcd.print(ldr4);
-        lcd.print(" 5:");
-        lcd.print(ldr5);
+        lcd.print("West:");
+        lcd.print(top);
+        lcd.setCursor(10, 2);
+        lcd.print("South:");
+        lcd.print(down);
+
+        lcd.setCursor(0, 3);
+        lcd.print("East:");
+        lcd.print(left);
+        lcd.setCursor(10, 3);
+        lcd.print("North:");
+        lcd.print(right);
     }
 };
