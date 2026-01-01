@@ -6,6 +6,7 @@
 enum class AppState
 {
     AUTOMATIC,
+    AUTOMATIC_1_AXIS,
     MANUAL
 };
 
@@ -14,6 +15,21 @@ enum class ManualSelection
     X = 0,
     Y = 1,
     BACK = 2,
+    COUNT
+};
+
+enum class AutomaticSingleAxisSelection
+{
+    X = 0,
+    Y = 1,
+    BACK = 2,
+    COUNT
+};
+
+enum class ModeSelection
+{
+    MANUAL = 0,
+    AUTOMATIC_SINGLE_AXIS = 1,
     COUNT
 };
 
@@ -32,7 +48,7 @@ public:
         lcd.clear();
     }
 
-    void showAutomatic(uint8_t sun, float x, float y)
+    void showAutomatic(uint8_t sun, float x, float y, ModeSelection autoSelection)
     {
         lcd.clear();
         lcd.setCursor(0, 0);
@@ -43,9 +59,25 @@ public:
         lcd.setCursor(0, 2);
         lcd.print("X:");
         lcd.print(x);
-        lcd.setCursor(0, 3);
+        lcd.setCursor(10, 2);
         lcd.print("Y:");
         lcd.print(y);
+
+        lcd.setCursor(0, 3);
+        for (int i = 0; i < 2; i++)
+        {
+            bool selected = (i == static_cast<int>(autoSelection));
+            if (i == 0)
+            {
+                lcd.setCursor(0, 3);
+                lcd.print((selected ? ">" : " ") + String("MANUAL"));
+            }
+            else if (i == 1)
+            {
+                lcd.setCursor(10, 3);
+                lcd.print((selected ? ">" : " ") + String("AUTO-1") + String(y));
+            }
+        }
     }
 
     void showManual(
@@ -73,6 +105,34 @@ public:
                 lcd.print((selected ? ">" : " ") + String("Y:") + String(y) + (selected && inEdit ? "*" : ""));
                 lcd.setCursor(8, 2);
                 lcd.print("Y=" + String(mpuY));
+            }
+            else
+            {
+                lcd.print((selected ? ">" : " ") + String("Back"));
+            }
+        }
+    }
+
+    void showAutomaticSingleAxis(
+        float mpuX, float mpuY,
+        bool inEditMode,
+        AutomaticSingleAxisSelection selection)
+    {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Mode: AUTO 1 Axis");
+
+        for (int i = 0; i < 3; i++)
+        {
+            lcd.setCursor(0, i + 1);
+            bool selected = (i == static_cast<int>(selection));
+            if (i == 0)
+            {
+                lcd.print((selected ? ">" : " ") + String("X:") + String(mpuX) + (selected && inEditMode ? "*" : ""));
+            }
+            else if (i == 1)
+            {
+                lcd.print((selected ? ">" : " ") + String("Y:") + String(mpuY) + (selected && inEditMode ? "*" : ""));
             }
             else
             {
