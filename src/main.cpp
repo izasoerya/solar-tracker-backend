@@ -232,23 +232,19 @@ void handleInput()
 
 	if (appState == AppState::AUTOMATIC)
 	{
-		if (input.wasPressed() && modeSelection == ModeSelection::MANUAL)
+		bool pressed = input.wasPressed(); // read once
+		if (pressed && modeSelection == ModeSelection::MANUAL)
 		{
 			appState = AppState::MANUAL;
-
-			// Reset all state below to default
 			manualSelection = ManualSelection::X;
 			automaticSingleAxisSelection = AutomaticSingleAxisSelection::X;
 			xSelected = false;
 			ySelected = false;
 			inEditMode = false;
 		}
-
-		if (input.wasPressed() && modeSelection == ModeSelection::AUTOMATIC_SINGLE_AXIS)
+		else if (pressed && modeSelection == ModeSelection::AUTOMATIC_SINGLE_AXIS)
 		{
 			appState = AppState::AUTOMATIC_1_AXIS;
-
-			// Reset all state below to default
 			manualSelection = ManualSelection::X;
 			automaticSingleAxisSelection = AutomaticSingleAxisSelection::X;
 			xSelected = false;
@@ -269,7 +265,7 @@ void handleInput()
 	{
 		if (input.wasPressed())
 		{
-			if (manualSelection == ManualSelection::BACK)
+			if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::BACK)
 			{
 				appState = AppState::AUTOMATIC;
 				xSelected = false;
@@ -287,27 +283,24 @@ void handleInput()
 		{
 			if (inEditMode)
 			{
-				if (input.wasPressed())
+				if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::X)
 				{
-					if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::X)
-					{
-						xSelected = true;
-						ySelected = false;
-						yVal = 0;
-					}
-					else if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::Y)
-					{
-						xSelected = false;
-						ySelected = true;
-						xVal = 0;
-					}
+					xSelected = true;
+					ySelected = false;
+					yVal = 0;
+				}
+				else if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::Y)
+				{
+					xSelected = false;
+					ySelected = true;
+					xVal = 0;
 				}
 			}
 			else
 			{
-				int newSel = static_cast<int>(manualSelection) + dir;
-				newSel = constrain(newSel, 0, static_cast<int>(ManualSelection::COUNT) - 1);
-				manualSelection = static_cast<ManualSelection>(newSel);
+				int newSel = static_cast<int>(automaticSingleAxisSelection) + dir;
+				newSel = constrain(newSel, 0, static_cast<int>(AutomaticSingleAxisSelection::COUNT) - 1);
+				automaticSingleAxisSelection = static_cast<AutomaticSingleAxisSelection>(newSel);
 			}
 		}
 	}

@@ -74,8 +74,8 @@ public:
             }
             else if (i == 1)
             {
-                lcd.setCursor(10, 3);
-                lcd.print((selected ? ">" : " ") + String("AUTO-1") + String(y));
+                lcd.setCursor(9, 3);
+                lcd.print((selected ? ">" : " ") + String("AUTO-1"));
             }
         }
     }
