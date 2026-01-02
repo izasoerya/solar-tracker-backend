@@ -34,13 +34,15 @@ unsigned long lastControl = 0;
 unsigned long lastInput = 0;
 
 // === Intervals ===
-const unsigned long UI_INTERVAL = 1000;	   // 1s
-const unsigned long SENS_INTERVAL = 100;   // 100ms
-const unsigned long CONTROL_INTERVAL = 20; // 20ms
-const unsigned long INPUT_INTERVAL = 5;	   // 5ms
+const uint16_t UI_INTERVAL = 1000;	 // 1s
+const uint8_t SENS_INTERVAL = 100;	 // 100ms
+const uint8_t CONTROL_INTERVAL = 20; // 20ms
+const uint8_t INPUT_INTERVAL = 5;	 // 5ms
 
 AppState appState = AppState::AUTOMATIC;
-ManualSelection selection = ManualSelection::X;
+ManualSelection manualSelection = ManualSelection::X;
+AutomaticSingleAxisSelection automaticSingleAxisSelection = AutomaticSingleAxisSelection::X;
+ModeSelection modeSelection = ModeSelection::MANUAL;
 bool inEditMode = false;
 bool inLDRMode = false;
 
@@ -49,6 +51,8 @@ bool allowWDT = true;
 
 int8_t xVal = 0;
 int8_t yVal = 0;
+bool xSelected = false;
+bool ySelected = false;
 float angleMain = 0;
 float angleSecond = 0;
 byte sunWest = 0;
@@ -67,9 +71,14 @@ void handleUI()
 {
 	if (appState == AppState::AUTOMATIC)
 	{
-		ui.showDebugLDR(sunWest, sunSouth,
-						sunEast, sunNorth,
-						nows, inLDRMode);
+		// ui.showDebugLDR(sunWest, sunSouth,
+		// 				sunEast, sunNorth,
+		// 				nows, inLDRMode);
+		ui.showAutomatic((int(sunWest + sunSouth + sunEast + sunNorth) / 4), angleMain, angleSecond, modeSelection);
+	}
+	else if (appState == AppState::AUTOMATIC_1_AXIS)
+	{
+		ui.showAutomaticSingleAxis(angleMain, angleSecond, inEditMode, automaticSingleAxisSelection);
 	}
 	else
 	{
@@ -77,7 +86,7 @@ void handleUI()
 			sunWest, sunSouth, sunEast, sunNorth,
 			xVal, yVal,
 			(angleMain), (angleSecond),
-			selection, inEditMode);
+			manualSelection, inEditMode);
 	}
 }
 
@@ -103,23 +112,8 @@ void handleSensorUpdate()
 void handleControl()
 {
 	wdt_reset();
-	if (appState == AppState::AUTOMATIC)
+	if (appState == AppState::AUTOMATIC || appState == AppState::AUTOMATIC_1_AXIS)
 	{
-		// -- Cloudy sky -- //
-		// static byte refSunLeft = 0;
-		// static byte refSunRight = 0;
-		// bool isCloudy = (sunWest < 50 && sunSouth < 50 && sunEast < 50 && sunNorth < 50);
-		// if (isCloudy)
-		// {
-		// 	control.cloudyStrategy(
-		// 		millis(), ldr.getRawValue(4), ldr.getRawValue(5),
-		// 		refSunLeft, refSunRight, sunEast, sunNorth);
-		// }
-		// else
-		// {
-		// 	refSunLeft = sunEast;
-		// 	refSunRight = sunNorth;
-		// }
 		if ((nows.hour >= 20 && nows.hour <= 23) || (nows.hour >= 0 && nows.hour <= 3))
 		{
 			control.runManual(0, 0, angleMain, angleSecond);
@@ -129,9 +123,8 @@ void handleControl()
 			float targetElevation = sun.getElevation();
 			float targetAzimuth = sun.getAzimuth();
 
-			if (sun.getElevation() < 0 && nows.hour > 3)
+			if (sun.getElevation() < 0 && nows.hour > 3) // Morning Time, start to MAX west
 			{
-				// Serial.println("Outside Time");
 				control.runManual(-60, 0, angleMain, angleSecond);
 				return;
 			}
@@ -141,13 +134,35 @@ void handleControl()
 				SeptyanJaya angle = sun.septyanUpdate(targetAzimuth, targetElevation);
 				bool xInThreshold = fabs(angle.parsedX - angleMain) <= 10;
 				bool yInThreshold = fabs(angle.parsedY - angleSecond) <= 10;
-				if (!xInThreshold)
+				if (!xInThreshold && appState != AppState::AUTOMATIC_1_AXIS)
 				{
 					control.runX(angle.parsedX, angleMain);
 				}
-				if (!yInThreshold)
+				else if (!xInThreshold && appState == AppState::AUTOMATIC_1_AXIS)
+				{
+					if (xSelected)
+					{
+						control.runX(angle.parsedX, angleMain);
+					}
+					else
+					{
+						control.runX(0, angleMain);
+					}
+				}
+				if (!yInThreshold && appState != AppState::AUTOMATIC_1_AXIS)
 				{
 					control.runY(angle.parsedY, angleSecond);
+				}
+				else if (!yInThreshold && appState == AppState::AUTOMATIC_1_AXIS)
+				{
+					if (ySelected)
+					{
+						control.runY(angle.parsedY, angleSecond);
+					}
+					else
+					{
+						control.runY(0, angleSecond);
+					}
 				}
 				// Serial.print("X: ");
 				// Serial.print(angleMain);
@@ -166,7 +181,6 @@ void handleControl()
 
 				if (xInThreshold && yInThreshold)
 				{
-					// Serial.println("LDR Adjustment");
 					inLDRMode = true;
 					float diffMain = sunWest - sunEast;
 					float diffSecond = sunSouth - sunNorth;
@@ -185,7 +199,17 @@ void handleControl()
 					{
 						angleParsedYOverflow += (diffSecond > 0) ? 0.25 : -0.25;
 					}
-					control.runManual(angleParsedXOverflow, angleParsedYOverflow, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
+					if (appState != AppState::AUTOMATIC_1_AXIS)
+					{
+						control.runManual(angleParsedXOverflow, angleParsedYOverflow, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
+					}
+					else if (appState == AppState::AUTOMATIC_1_AXIS)
+					{
+						if (xSelected)
+							control.runManual(angleParsedXOverflow, 0, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
+						if (ySelected)
+							control.runManual(0, angleParsedYOverflow, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
+					}
 				}
 				else
 				{
@@ -208,18 +232,81 @@ void handleInput()
 
 	if (appState == AppState::AUTOMATIC)
 	{
-		if (input.wasPressed())
+		bool pressed = input.wasPressed(); // read once
+		if (pressed && modeSelection == ModeSelection::MANUAL)
 		{
 			appState = AppState::MANUAL;
-			selection = ManualSelection::X;
+			manualSelection = ManualSelection::X;
+			automaticSingleAxisSelection = AutomaticSingleAxisSelection::X;
+			xSelected = false;
+			ySelected = false;
 			inEditMode = false;
 		}
+		else if (pressed && modeSelection == ModeSelection::AUTOMATIC_SINGLE_AXIS)
+		{
+			appState = AppState::AUTOMATIC_1_AXIS;
+			manualSelection = ManualSelection::X;
+			automaticSingleAxisSelection = AutomaticSingleAxisSelection::X;
+			xSelected = false;
+			ySelected = false;
+			inEditMode = false;
+		}
+
+		int8_t dir = input.getDirection();
+		if (dir != 0)
+		{
+			int newSel = static_cast<int>(modeSelection) + dir;
+			newSel = constrain(newSel, 0, static_cast<int>(ModeSelection::COUNT) - 1);
+			modeSelection = static_cast<ModeSelection>(newSel);
+		}
 	}
+
+	else if (appState == AppState::AUTOMATIC_1_AXIS)
+	{
+		if (input.wasPressed())
+		{
+			if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::BACK)
+			{
+				appState = AppState::AUTOMATIC;
+				xSelected = false;
+				ySelected = false;
+				inEditMode = false;
+			}
+			else
+			{
+				inEditMode = !inEditMode;
+			}
+		}
+
+		int8_t dir = input.getDirection();
+		if (inEditMode)
+		{
+			if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::X)
+			{
+				xSelected = true;
+				ySelected = false;
+				yVal = 0;
+			}
+			else if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::Y)
+			{
+				xSelected = false;
+				ySelected = true;
+				xVal = 0;
+			}
+		}
+		else
+		{
+			int newSel = static_cast<int>(automaticSingleAxisSelection) + dir;
+			newSel = constrain(newSel, 0, static_cast<int>(AutomaticSingleAxisSelection::COUNT) - 1);
+			automaticSingleAxisSelection = static_cast<AutomaticSingleAxisSelection>(newSel);
+		}
+	}
+
 	else if (appState == AppState::MANUAL)
 	{
 		if (input.wasPressed())
 		{
-			if (selection == ManualSelection::BACK)
+			if (manualSelection == ManualSelection::BACK)
 			{
 				appState = AppState::AUTOMATIC;
 				inEditMode = false;
@@ -235,16 +322,16 @@ void handleInput()
 		{
 			if (inEditMode)
 			{
-				if (selection == ManualSelection::X)
+				if (manualSelection == ManualSelection::X)
 					xVal = constrain(xVal + dir * STEP, VAL_MIN, VAL_MAX);
-				else if (selection == ManualSelection::Y)
+				else if (manualSelection == ManualSelection::Y)
 					yVal = constrain(yVal + dir * STEP, VAL_MIN, VAL_MAX);
 			}
 			else
 			{
-				int newSel = static_cast<int>(selection) + dir;
+				int newSel = static_cast<int>(manualSelection) + dir;
 				newSel = constrain(newSel, 0, static_cast<int>(ManualSelection::COUNT) - 1);
-				selection = static_cast<ManualSelection>(newSel);
+				manualSelection = static_cast<ManualSelection>(newSel);
 			}
 		}
 	}
