@@ -146,7 +146,7 @@ void handleControl()
 					}
 					else
 					{
-						control.runX(angle.parsedX, 0);
+						control.runX(0, angleMain);
 					}
 				}
 				if (!yInThreshold && appState != AppState::AUTOMATIC_1_AXIS)
@@ -161,7 +161,7 @@ void handleControl()
 					}
 					else
 					{
-						control.runY(angle.parsedY, 0);
+						control.runY(0, angleSecond);
 					}
 				}
 				// Serial.print("X: ");
@@ -279,29 +279,26 @@ void handleInput()
 		}
 
 		int8_t dir = input.getDirection();
-		if (dir != 0)
+		if (inEditMode)
 		{
-			if (inEditMode)
+			if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::X)
 			{
-				if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::X)
-				{
-					xSelected = true;
-					ySelected = false;
-					yVal = 0;
-				}
-				else if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::Y)
-				{
-					xSelected = false;
-					ySelected = true;
-					xVal = 0;
-				}
+				xSelected = true;
+				ySelected = false;
+				yVal = 0;
 			}
-			else
+			else if (automaticSingleAxisSelection == AutomaticSingleAxisSelection::Y)
 			{
-				int newSel = static_cast<int>(automaticSingleAxisSelection) + dir;
-				newSel = constrain(newSel, 0, static_cast<int>(AutomaticSingleAxisSelection::COUNT) - 1);
-				automaticSingleAxisSelection = static_cast<AutomaticSingleAxisSelection>(newSel);
+				xSelected = false;
+				ySelected = true;
+				xVal = 0;
 			}
+		}
+		else
+		{
+			int newSel = static_cast<int>(automaticSingleAxisSelection) + dir;
+			newSel = constrain(newSel, 0, static_cast<int>(AutomaticSingleAxisSelection::COUNT) - 1);
+			automaticSingleAxisSelection = static_cast<AutomaticSingleAxisSelection>(newSel);
 		}
 	}
 
