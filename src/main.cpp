@@ -112,6 +112,7 @@ void handleSensorUpdate()
 void handleControl()
 {
 	wdt_reset();
+	inLDRMode = false;
 	if (appState == AppState::AUTOMATIC || appState == AppState::AUTOMATIC_1_AXIS)
 	{
 		if ((nows.hour >= 20 && nows.hour <= 23) || (nows.hour >= 0 && nows.hour <= 3))
@@ -134,36 +135,18 @@ void handleControl()
 				SeptyanJaya angle = sun.septyanUpdate(targetAzimuth, targetElevation);
 				bool xInThreshold = fabs(angle.parsedX - angleMain) <= 10;
 				bool yInThreshold = fabs(angle.parsedY - angleSecond) <= 10;
-				if (!xInThreshold && appState != AppState::AUTOMATIC_1_AXIS)
+
+				// ============= AUTOMATIC MODE CONTROL =================
+				if (!xInThreshold && appState == AppState::AUTOMATIC)
 				{
 					control.runX(angle.parsedX, angleMain);
 				}
-				else if (!xInThreshold && appState == AppState::AUTOMATIC_1_AXIS)
-				{
-					if (xSelected)
-					{
-						control.runX(angle.parsedX, angleMain);
-					}
-					else
-					{
-						control.runX(0, angleMain);
-					}
-				}
-				if (!yInThreshold && appState != AppState::AUTOMATIC_1_AXIS)
+
+				if (!yInThreshold && appState == AppState::AUTOMATIC)
 				{
 					control.runY(angle.parsedY, angleSecond);
 				}
-				else if (!yInThreshold && appState == AppState::AUTOMATIC_1_AXIS)
-				{
-					if (ySelected)
-					{
-						control.runY(angle.parsedY, angleSecond);
-					}
-					else
-					{
-						control.runY(0, angleSecond);
-					}
-				}
+
 				// Serial.print("X: ");
 				// Serial.print(angleMain);
 				// Serial.print("  Y: ");
@@ -178,16 +161,73 @@ void handleControl()
 				// Serial.print(rtc.getData().minute);
 				// Serial.print(":");
 				// Serial.println(rtc.getData().second);
-
-				if (xInThreshold && yInThreshold)
+				if (xInThreshold && yInThreshold && appState == AppState::AUTOMATIC)
 				{
-					inLDRMode = true;
 					float diffMain = sunWest - sunEast;
 					float diffSecond = sunSouth - sunNorth;
 
 					float deadbandMain = (min(sunWest, sunEast) / max(sunWest, sunEast));
 					float deadbandSecond = (min(sunSouth, sunNorth) / max(sunSouth, sunNorth));
 
+					float angleParsedXOverflow = angle.parsedX;
+					float angleParsedYOverflow = angle.parsedY;
+
+					bool _ldrCorrection = false;
+					if (deadbandMain < 0.9)
+					{
+						angleParsedXOverflow += (diffMain > 0) ? 0.25 : -0.25;
+						_ldrCorrection = true;
+					}
+					if (deadbandSecond < 0.9)
+					{
+						angleParsedYOverflow += (diffSecond > 0) ? 0.25 : -0.25;
+						_ldrCorrection = true;
+					}
+					if (_ldrCorrection)
+					{
+						inLDRMode = true;
+						control.runManual(angleParsedXOverflow, angleParsedYOverflow, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
+					}
+				}
+				// =======================================================
+
+				// ========= AUTOMATIC SINGLE AXIS MODE CONTROL ==========
+				if (appState == AppState::AUTOMATIC_1_AXIS)
+				{
+					if (!xSelected)
+					{
+						control.runX(0, angleMain);
+						return;
+					}
+
+					if (!ySelected)
+					{
+						control.runY(0, angleSecond);
+						return;
+					}
+				}
+
+				if (appState == AppState::AUTOMATIC_1_AXIS)
+				{
+					if (xSelected && !xInThreshold)
+					{
+						control.runX(angle.parsedX, angleMain);
+						return;
+					}
+
+					if (ySelected && !yInThreshold)
+					{
+						control.runY(angle.parsedY, angleSecond);
+						return;
+					}
+				}
+
+				if (((xInThreshold && xSelected) || (yInThreshold && ySelected)) && appState == AppState::AUTOMATIC_1_AXIS)
+				{
+					float diffMain = sunWest - sunEast;
+					float diffSecond = sunSouth - sunNorth;
+					float deadbandMain = (min(sunWest, sunEast) / max(sunWest, sunEast));
+					float deadbandSecond = (min(sunSouth, sunNorth) / max(sunSouth, sunNorth));
 					float angleParsedXOverflow = angle.parsedX;
 					float angleParsedYOverflow = angle.parsedY;
 
@@ -199,21 +239,23 @@ void handleControl()
 					{
 						angleParsedYOverflow += (diffSecond > 0) ? 0.25 : -0.25;
 					}
-					if (appState != AppState::AUTOMATIC_1_AXIS)
+
+					if (appState == AppState::AUTOMATIC_1_AXIS)
 					{
-						control.runManual(angleParsedXOverflow, angleParsedYOverflow, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
-					}
-					else if (appState == AppState::AUTOMATIC_1_AXIS)
-					{
-						if (xSelected)
+						if (xSelected && deadbandMain < 0.9)
+						{
+							inLDRMode = true;
 							control.runManual(angleParsedXOverflow, 0, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
-						if (ySelected)
+							return;
+						}
+
+						if (ySelected && deadbandSecond < 0.9)
+						{
+							inLDRMode = true;
 							control.runManual(0, angleParsedYOverflow, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
+							return;
+						}
 					}
-				}
-				else
-				{
-					inLDRMode = false;
 				}
 			}
 		}
