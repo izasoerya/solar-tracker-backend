@@ -69,6 +69,12 @@ void handleInput();
 // === UI Update Task ===
 void handleUI()
 {
+	// Serial.print(nows.hour);
+	// Serial.print(":");
+	// Serial.print(nows.minute);
+	// Serial.print(":");
+	// Serial.println(nows.second);
+
 	if (appState == AppState::AUTOMATIC)
 	{
 		// ui.showDebugLDR(sunWest, sunSouth,
@@ -147,20 +153,6 @@ void handleControl()
 					control.runY(angle.parsedY, angleSecond);
 				}
 
-				// Serial.print("X: ");
-				// Serial.print(angleMain);
-				// Serial.print("  Y: ");
-				// Serial.print(angleSecond);
-				// Serial.print("  TX: ");
-				// Serial.print(angle.parsedX);
-				// Serial.print("  TY: ");
-				// Serial.print(angle.parsedY);
-				// Serial.print("       ");
-				// Serial.print(rtc.getData().hour);
-				// Serial.print(":");
-				// Serial.print(rtc.getData().minute);
-				// Serial.print(":");
-				// Serial.println(rtc.getData().second);
 				if (xInThreshold && yInThreshold && appState == AppState::AUTOMATIC)
 				{
 					float diffMain = sunWest - sunEast;
@@ -197,13 +189,11 @@ void handleControl()
 					if (!xSelected)
 					{
 						control.runX(0, angleMain);
-						return;
 					}
 
 					if (!ySelected)
 					{
 						control.runY(0, angleSecond);
-						return;
 					}
 				}
 
@@ -212,13 +202,11 @@ void handleControl()
 					if (xSelected && !xInThreshold)
 					{
 						control.runX(angle.parsedX, angleMain);
-						return;
 					}
 
 					if (ySelected && !yInThreshold)
 					{
 						control.runY(angle.parsedY, angleSecond);
-						return;
 					}
 				}
 
@@ -246,14 +234,12 @@ void handleControl()
 						{
 							inLDRMode = true;
 							control.runManual(angleParsedXOverflow, 0, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
-							return;
 						}
 
 						if (ySelected && deadbandSecond < 0.9)
 						{
 							inLDRMode = true;
 							control.runManual(0, angleParsedYOverflow, (angleMain + 0.113) / 1.028, angleSecond - 0.2);
-							return;
 						}
 					}
 				}
